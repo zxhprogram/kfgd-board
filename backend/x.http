@@ -1,0 +1,17 @@
+###
+POST https://kfgdui-prd.chinatowercom.cn:8300/api/problem/problemYg/list
+Content-Type: application/x-www-form-urlencoded
+Authorization: bearer e284f681-61b9-4443-801a-eb0ad0278eba
+
+createTime=&proId=360000202603300932016890&creator=&proLevel=&customerName=&customerPhone=&proType=&problemSource=&solvedScore=&province=&city=&proStates=&systemSource=&ifDelayed=&ifUp=&expectOnlineTime=&onlineTime=&whichSystem=&childWhichSystem=&expectOnlineVersion=&maskTypeList=&proTaskStateList=&systemType=yunguan&proCls=&businessType=&finishTime=&pageSize=10&pageNo=1
+
+###
+POST http://localhost:8080/business-orders/import
+Content-Type: application/json
+
+{
+  "proIds": ["370000202605191029270294"]
+}
+
+###
+GET http://localhost:8080/business-orders
