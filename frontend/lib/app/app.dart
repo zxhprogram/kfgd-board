@@ -10,7 +10,9 @@ class KfgdBoardApp extends StatelessWidget {
     return ShadcnApp.router(
       title: 'KFGD Board',
       routerConfig: router,
-      theme: ThemeData(colorScheme: ColorSchemes.lightSlate, radius: 0.6),
+      theme: ThemeData(colorScheme: ColorSchemes.lightSlate, radius: 0.6,typography: Typography.geist(
+        sans:const TextStyle(fontFamily: 'Microsoft YaHei' ),
+      )),
     );
   }
 }
