@@ -15,6 +15,14 @@ class BusinessOrderTable extends StatefulWidget {
 class _BusinessOrderTableState extends State<BusinessOrderTable> {
   PlutoGridStateManager? _stateManager;
 
+  static bool _isDurationOverdue(String duration) {
+    if (duration.isEmpty) return false;
+    final match = RegExp(r'(\d+)d').firstMatch(duration);
+    if (match == null) return false;
+    final days = int.tryParse(match.group(1) ?? '0') ?? 0;
+    return days >= 5;
+  }
+
   static List<PlutoColumn> _buildColumns() {
     return [
       PlutoColumn(
@@ -70,6 +78,17 @@ class _BusinessOrderTableState extends State<BusinessOrderTable> {
         type: PlutoColumnType.text(),
         width: 120,
         readOnly: true,
+        renderer: (context) {
+          final value = context.cell.value?.toString() ?? '';
+          final overdue = _isDurationOverdue(value);
+          return Text(
+            value,
+            style: TextStyle(
+              color: overdue ? Colors.red : null,
+              fontWeight: overdue ? FontWeight.bold : null,
+            ),
+          );
+        },
       ),
       PlutoColumn(
         title: '开始时间',
@@ -136,6 +155,15 @@ class _BusinessOrderTableState extends State<BusinessOrderTable> {
         _stateManager = event.stateManager;
       },
       noRowsWidget: const Center(child: Text('暂无已导入数据')),
+      rowColorCallback: (rowColorContext) {
+        final duration =
+            rowColorContext.row.cells['processDuration']?.value?.toString() ??
+                '';
+        if (_isDurationOverdue(duration)) {
+          return Colors.red.withValues(alpha: 0.08);
+        }
+        return Colors.transparent;
+      },
       configuration: const PlutoGridConfiguration(
         columnSize: PlutoGridColumnSizeConfig(
           autoSizeMode: PlutoAutoSizeMode.none,
