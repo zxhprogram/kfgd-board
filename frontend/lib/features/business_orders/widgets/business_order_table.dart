@@ -13,6 +13,8 @@ class BusinessOrderTable extends StatefulWidget {
 }
 
 class _BusinessOrderTableState extends State<BusinessOrderTable> {
+  PlutoGridStateManager? _stateManager;
+
   static List<PlutoColumn> _buildColumns() {
     return [
       PlutoColumn(
@@ -107,13 +109,23 @@ class _BusinessOrderTableState extends State<BusinessOrderTable> {
   }
 
   @override
+  void didUpdateWidget(covariant BusinessOrderTable oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_stateManager != null && widget.items != oldWidget.items) {
+      final newRows = _buildRows(widget.items);
+      _stateManager!.removeRows(_stateManager!.rows);
+      _stateManager!.insertRows(0, newRows);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return PlutoGrid(
       columns: _buildColumns(),
       rows: _buildRows(widget.items),
       mode: PlutoGridMode.readOnly,
       onLoaded: (event) {
-        event.stateManager;
+        _stateManager = event.stateManager;
       },
       noRowsWidget: const Center(child: Text('暂无已导入数据')),
       configuration: const PlutoGridConfiguration(
