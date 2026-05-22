@@ -18,18 +18,20 @@ class BusinessOrderTable extends StatelessWidget {
       child: Table(
         columnWidths: const {
           0: FixedTableSize(190),
-          1: FixedTableSize(280),
-          2: FixedTableSize(120),
-          3: FixedTableSize(130),
-          4: FixedTableSize(80),
-          5: FixedTableSize(170),
+          1: FixedTableSize(160),
+          2: FixedTableSize(280),
+          3: FixedTableSize(120),
+          4: FixedTableSize(130),
+          5: FixedTableSize(80),
           6: FixedTableSize(170),
           7: FixedTableSize(170),
+          8: FixedTableSize(170),
         },
         rows: [
           TableHeader(
             cells: const [
-              TableCell(child: Text('proId')),
+              TableCell(child: Text('工单编号')),
+              TableCell(child: Text('外系统单号')),
               TableCell(child: Text('标题')),
               TableCell(child: Text('客户')),
               TableCell(child: Text('电话')),
@@ -43,6 +45,7 @@ class BusinessOrderTable extends StatelessWidget {
             (item) => TableRow(
               cells: [
                 TableCell(child: Text(item.proId)),
+                TableCell(child: Text(item.externalNo)),
                 TableCell(
                   child: Text(item.proTitle, overflow: TextOverflow.ellipsis),
                 ),

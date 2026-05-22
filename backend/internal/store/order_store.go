@@ -21,6 +21,7 @@ type OrderStore struct {
 
 type SavedBusinessOrder struct {
 	ProId         string                   `json:"proId"`
+	ExternalNo    string                   `json:"externalNo"`
 	ProTitle      string                   `json:"proTitle"`
 	CustomerName  string                   `json:"customerName"`
 	CustomerPhone string                   `json:"customerPhone"`
@@ -64,6 +65,7 @@ func (s *OrderStore) init(ctx context.Context) error {
 	_, err := s.db.ExecContext(ctx, `
 CREATE TABLE IF NOT EXISTS business_orders (
 	pro_id TEXT PRIMARY KEY,
+	external_no TEXT DEFAULT '',
 	pro_title TEXT,
 	customer_name TEXT,
 	customer_phone TEXT,
@@ -75,6 +77,41 @@ CREATE TABLE IF NOT EXISTS business_orders (
 );
 CREATE INDEX IF NOT EXISTS idx_business_orders_saved_at ON business_orders(saved_at);
 `)
+	if err != nil {
+		return err
+	}
+	return s.ensureBusinessOrdersColumns(ctx)
+}
+
+func (s *OrderStore) ensureBusinessOrdersColumns(ctx context.Context) error {
+	rows, err := s.db.QueryContext(ctx, `PRAGMA table_info(business_orders)`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	hasExternalNo := false
+	for rows.Next() {
+		var cid int
+		var name string
+		var columnType string
+		var notNull int
+		var defaultValue sql.NullString
+		var pk int
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &pk); err != nil {
+			return err
+		}
+		if name == "external_no" {
+			hasExternalNo = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if hasExternalNo {
+		return nil
+	}
+	_, err = s.db.ExecContext(ctx, `ALTER TABLE business_orders ADD COLUMN external_no TEXT DEFAULT ''`)
 	return err
 }
 
@@ -90,9 +127,10 @@ func (s *OrderStore) UpsertOrders(ctx context.Context, values []model.BusinessOr
 
 	stmt, err := tx.PrepareContext(ctx, `
 INSERT INTO business_orders (
-	pro_id, pro_title, customer_name, customer_phone, pro_state, create_time, update_time, raw_json, saved_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+	pro_id, external_no, pro_title, customer_name, customer_phone, pro_state, create_time, update_time, raw_json, saved_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 ON CONFLICT(pro_id) DO UPDATE SET
+	external_no = excluded.external_no,
 	pro_title = excluded.pro_title,
 	customer_name = excluded.customer_name,
 	customer_phone = excluded.customer_phone,
@@ -115,7 +153,7 @@ ON CONFLICT(pro_id) DO UPDATE SET
 		if err != nil {
 			return err
 		}
-		if _, err := stmt.ExecContext(ctx, value.ProId, value.ProTitle, value.CustomerName, value.CustomerPhone, value.ProState, value.CreateTime, value.UpdateTime, string(raw)); err != nil {
+		if _, err := stmt.ExecContext(ctx, value.ProId, value.ExternalNo, value.ProTitle, value.CustomerName, value.CustomerPhone, value.ProState, value.CreateTime, value.UpdateTime, string(raw)); err != nil {
 			return err
 		}
 	}
@@ -138,7 +176,7 @@ func (s *OrderStore) ListOrders(ctx context.Context, pageNo int, pageSize int) (
 	}
 
 	rows, err := s.db.QueryContext(ctx, `
-SELECT pro_id, pro_title, customer_name, customer_phone, pro_state, create_time, update_time, raw_json, saved_at
+SELECT pro_id, external_no, pro_title, customer_name, customer_phone, pro_state, create_time, update_time, raw_json, saved_at
 FROM business_orders
 ORDER BY saved_at DESC, pro_id DESC
 LIMIT ? OFFSET ?
@@ -152,7 +190,7 @@ LIMIT ? OFFSET ?
 	for rows.Next() {
 		var item SavedBusinessOrder
 		var raw string
-		if err := rows.Scan(&item.ProId, &item.ProTitle, &item.CustomerName, &item.CustomerPhone, &item.ProState, &item.CreateTime, &item.UpdateTime, &raw, &item.SavedAt); err != nil {
+		if err := rows.Scan(&item.ProId, &item.ExternalNo, &item.ProTitle, &item.CustomerName, &item.CustomerPhone, &item.ProState, &item.CreateTime, &item.UpdateTime, &raw, &item.SavedAt); err != nil {
 			return nil, 0, err
 		}
 		if err := json.Unmarshal([]byte(raw), &item.Raw); err != nil {

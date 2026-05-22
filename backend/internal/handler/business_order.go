@@ -26,7 +26,13 @@ type BusinessOrderHandler struct {
 }
 
 type importBusinessOrdersRequest struct {
-	ProIDs []string `json:"proIds"`
+	Orders []importBusinessOrderItem `json:"orders"`
+	ProIDs []string                  `json:"proIds"`
+}
+
+type importBusinessOrderItem struct {
+	ProID      string `json:"proId"`
+	ExternalNo string `json:"externalNo"`
 }
 
 func NewBusinessOrderHandler(fetcher BusinessOrderFetcher, store BusinessOrderStore) *BusinessOrderHandler {
@@ -40,18 +46,21 @@ func (h *BusinessOrderHandler) Import(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	proIDs := normalizeProIDs(req.ProIDs)
-	if len(proIDs) == 0 {
-		writeJSONError(w, http.StatusBadRequest, "proIds is required")
+	orders := normalizeImportOrders(req)
+	if len(orders) == 0 {
+		writeJSONError(w, http.StatusBadRequest, "orders is required")
 		return
 	}
 
 	values := make([]model.BusinessOrderValue, 0)
-	for _, proID := range proIDs {
-		items, err := h.fetcher.FetchByProID(r.Context(), proID)
+	for _, order := range orders {
+		items, err := h.fetcher.FetchByProID(r.Context(), order.ProID)
 		if err != nil {
 			writeJSONError(w, http.StatusBadGateway, err.Error())
 			return
+		}
+		for i := range items {
+			items[i].ExternalNo = order.ExternalNo
 		}
 		values = append(values, items...)
 	}
@@ -62,7 +71,7 @@ func (h *BusinessOrderHandler) Import(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"requested": len(proIDs),
+		"requested": len(orders),
 		"imported":  len(values),
 	})
 }
@@ -88,10 +97,24 @@ func (h *BusinessOrderHandler) List(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func normalizeProIDs(proIDs []string) []string {
-	seen := make(map[string]struct{}, len(proIDs))
-	result := make([]string, 0, len(proIDs))
-	for _, proID := range proIDs {
+func normalizeImportOrders(req importBusinessOrdersRequest) []importBusinessOrderItem {
+	seen := make(map[string]struct{}, len(req.Orders)+len(req.ProIDs))
+	result := make([]importBusinessOrderItem, 0, len(req.Orders)+len(req.ProIDs))
+	for _, order := range req.Orders {
+		proID := strings.TrimSpace(order.ProID)
+		if proID == "" {
+			continue
+		}
+		if _, ok := seen[proID]; ok {
+			continue
+		}
+		seen[proID] = struct{}{}
+		result = append(result, importBusinessOrderItem{
+			ProID:      proID,
+			ExternalNo: strings.TrimSpace(order.ExternalNo),
+		})
+	}
+	for _, proID := range req.ProIDs {
 		proID = strings.TrimSpace(proID)
 		if proID == "" {
 			continue
@@ -100,7 +123,7 @@ func normalizeProIDs(proIDs []string) []string {
 			continue
 		}
 		seen[proID] = struct{}{}
-		result = append(result, proID)
+		result = append(result, importBusinessOrderItem{ProID: proID})
 	}
 	return result
 }

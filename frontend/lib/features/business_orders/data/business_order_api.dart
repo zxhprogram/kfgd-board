@@ -9,12 +9,12 @@ class BusinessOrderApi {
   final Dio _dio;
 
   Future<ImportBusinessOrdersResponse> importBusinessOrders(
-    List<String> proIds,
+    List<BusinessOrderImportItem> orders,
   ) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/business-orders/import',
-        data: {'proIds': proIds},
+        data: {'orders': orders.map((order) => order.toJson()).toList()},
       );
       return ImportBusinessOrdersResponse.fromJson(response.data ?? const {});
     } catch (error) {

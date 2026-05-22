@@ -1,3 +1,17 @@
+class BusinessOrderImportItem {
+  const BusinessOrderImportItem({
+    required this.proId,
+    required this.externalNo,
+  });
+
+  final String proId;
+  final String externalNo;
+
+  Map<String, dynamic> toJson() {
+    return {'proId': proId, 'externalNo': externalNo};
+  }
+}
+
 class ImportBusinessOrdersResponse {
   const ImportBusinessOrdersResponse({
     required this.requested,
@@ -46,6 +60,7 @@ class BusinessOrderPage {
 class BusinessOrderItem {
   const BusinessOrderItem({
     required this.proId,
+    required this.externalNo,
     required this.proTitle,
     required this.customerName,
     required this.customerPhone,
@@ -57,6 +72,7 @@ class BusinessOrderItem {
   });
 
   final String proId;
+  final String externalNo;
   final String proTitle;
   final String customerName;
   final String customerPhone;
@@ -69,6 +85,7 @@ class BusinessOrderItem {
   factory BusinessOrderItem.fromJson(Map<String, dynamic> json) {
     return BusinessOrderItem(
       proId: json['proId']?.toString() ?? '',
+      externalNo: json['externalNo']?.toString() ?? '',
       proTitle: json['proTitle']?.toString() ?? '',
       customerName: json['customerName']?.toString() ?? '',
       customerPhone: json['customerPhone']?.toString() ?? '',

@@ -5,6 +5,7 @@ import 'package:signals_flutter/signals_flutter.dart';
 
 import '../../../app/dependencies.dart';
 import '../../../core/utils/excel_pro_id_parser.dart';
+import '../data/business_order_models.dart';
 import '../widgets/import_drop_zone.dart';
 
 class ImportPage extends StatelessWidget {
@@ -13,7 +14,7 @@ class ImportPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final store = importStore;
-    final pending = store.pendingImportProIds.watch(context);
+    final pending = store.pendingImportOrders.watch(context);
     final error = store.errorMessage.watch(context);
     final result = store.lastResult.watch(context);
     final isParsing = store.isParsing.watch(context);
@@ -29,7 +30,7 @@ class ImportPage extends StatelessWidget {
             style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
           ),
           const Gap(8),
-          const Text('拖入包含 proId 的 Excel 文件，系统会自动跳过已导入的数据。'),
+          const Text('拖入包含工单编号和外系统单号的 Excel 文件，系统会自动跳过已导入的数据。'),
           const Gap(24),
           ImportDropZone(
             onFileBytes: (fileName, bytes) async {
@@ -38,18 +39,19 @@ class ImportPage extends StatelessWidget {
                 return;
               }
               final parsed = parseExcelProIds(Uint8List.fromList(bytes));
-              await store.setParsedProIds(
+              await store.setParsedOrders(
                 fileName: fileName,
-                proIds: parsed.proIds,
+                orders: parsed.orders,
                 duplicateCount: parsed.duplicateCount,
               );
             },
           ),
           const Gap(24),
           _SummaryCard(),
+          if (isImporting) ...[const Gap(16), _ImportProgressCard()],
           if (pending.isNotEmpty) ...[
             const Gap(16),
-            _PendingPreview(proIds: pending),
+            _PendingPreview(orders: pending),
           ],
           const Gap(16),
           Row(
@@ -101,10 +103,10 @@ class _SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = importStore;
     final fileName = store.selectedFileName.watch(context);
-    final parsed = store.parsedProIds.watch(context).length;
+    final parsed = store.parsedOrders.watch(context).length;
     final duplicates = store.duplicateInFileCount.watch(context);
     final skipped = store.alreadyImportedCount.watch(context);
-    final pending = store.pendingImportProIds.watch(context).length;
+    final pending = store.pendingImportOrders.watch(context).length;
 
     return Card(
       child: Padding(
@@ -118,7 +120,7 @@ class _SummaryCard extends StatelessWidget {
             ),
             const Gap(12),
             Text('文件：${fileName ?? '-'}'),
-            Text('唯一 proId：$parsed'),
+            Text('唯一工单数：$parsed'),
             Text('文件内重复跳过：$duplicates'),
             Text('已导入跳过：$skipped'),
             Text('待导入：$pending'),
@@ -129,10 +131,43 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-class _PendingPreview extends StatelessWidget {
-  const _PendingPreview({required this.proIds});
+class _ImportProgressCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final store = importStore;
+    final total = store.importTotalCount.watch(context);
+    final completed = store.importCompletedCount.watch(context);
+    final imported = store.importSuccessCount.watch(context);
+    final progress = store.importProgress.watch(context).clamp(0.0, 1.0);
 
-  final List<String> proIds;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '导入进度',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            ),
+            const Gap(12),
+            Text('已处理：$completed / $total，成功导入：$imported'),
+            const Gap(8),
+            SizedBox(
+              width: 440,
+              child: LinearProgressIndicator(value: progress),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PendingPreview extends StatelessWidget {
+  const _PendingPreview({required this.orders});
+
+  final List<BusinessOrderImportItem> orders;
 
   @override
   Widget build(BuildContext context) {
@@ -147,8 +182,34 @@ class _PendingPreview extends StatelessWidget {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
             const Gap(8),
-            ...proIds.take(30).map((proId) => Text(proId)),
-            if (proIds.length > 30) Text('... 还有 ${proIds.length - 30} 条'),
+            Table(
+              columnWidths: const {
+                0: FixedTableSize(220),
+                1: FixedTableSize(220),
+              },
+              rows: [
+                TableHeader(
+                  cells: const [
+                    TableCell(child: Text('工单编号')),
+                    TableCell(child: Text('外系统单号')),
+                  ],
+                ),
+                ...orders
+                    .take(30)
+                    .map(
+                      (order) => TableRow(
+                        cells: [
+                          TableCell(child: Text(order.proId)),
+                          TableCell(child: Text(order.externalNo)),
+                        ],
+                      ),
+                    ),
+              ],
+            ),
+            if (orders.length > 30) ...[
+              const Gap(8),
+              Text('... 还有 ${orders.length - 30} 条'),
+            ],
           ],
         ),
       ),

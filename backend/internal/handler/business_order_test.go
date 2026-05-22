@@ -40,14 +40,14 @@ func TestBusinessOrderHandlerImport(t *testing.T) {
 		"p1": {{ProId: "p1", ProTitle: "title1"}},
 	}}, store)
 
-	req := httptest.NewRequest(http.MethodPost, "/business-orders/import", bytes.NewBufferString(`{"proIds":["p1","p1",""]}`))
+	req := httptest.NewRequest(http.MethodPost, "/business-orders/import", bytes.NewBufferString(`{"orders":[{"proId":"p1","externalNo":"ext1"},{"proId":"p1","externalNo":"ignored"},{"proId":"","externalNo":"empty"}]}`))
 	w := httptest.NewRecorder()
 	handler.Import(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
 	}
-	if len(store.values) != 1 || store.values[0].ProId != "p1" {
+	if len(store.values) != 1 || store.values[0].ProId != "p1" || store.values[0].ExternalNo != "ext1" {
 		t.Fatalf("stored values = %+v", store.values)
 	}
 
@@ -57,6 +57,24 @@ func TestBusinessOrderHandlerImport(t *testing.T) {
 	}
 	if body["requested"] != 1 || body["imported"] != 1 {
 		t.Fatalf("body = %+v", body)
+	}
+}
+
+func TestBusinessOrderHandlerImportLegacyProIDs(t *testing.T) {
+	store := &fakeBusinessOrderStore{}
+	handler := NewBusinessOrderHandler(fakeBusinessOrderFetcher{values: map[string][]model.BusinessOrderValue{
+		"p1": {{ProId: "p1", ProTitle: "title1"}},
+	}}, store)
+
+	req := httptest.NewRequest(http.MethodPost, "/business-orders/import", bytes.NewBufferString(`{"proIds":["p1","p1",""]}`))
+	w := httptest.NewRecorder()
+	handler.Import(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+	if len(store.values) != 1 || store.values[0].ProId != "p1" || store.values[0].ExternalNo != "" {
+		t.Fatalf("stored values = %+v", store.values)
 	}
 }
 

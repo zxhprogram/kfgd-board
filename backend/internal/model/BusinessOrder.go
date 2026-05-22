@@ -17,6 +17,7 @@ type BusinessOrder struct {
 type BusinessOrderValue struct {
 	Id                    int64  `json:"id"`
 	ProId                 string `json:"proId"`
+	ExternalNo            string `json:"externalNo"`
 	ParentProdId          string `json:"parentProdId"`
 	ProCls                string `json:"proCls"`
 	ProType               string `json:"proType"`

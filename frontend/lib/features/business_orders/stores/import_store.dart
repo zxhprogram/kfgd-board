@@ -12,26 +12,35 @@ class ImportStore {
   final BusinessOrderStore _orderStore;
 
   final selectedFileName = signal<String?>(null);
-  final parsedProIds = signal<List<String>>([]);
+  final parsedOrders = signal<List<BusinessOrderImportItem>>([]);
   final duplicateInFileCount = signal(0);
   final alreadyImportedCount = signal(0);
-  final pendingImportProIds = signal<List<String>>([]);
+  final pendingImportOrders = signal<List<BusinessOrderImportItem>>([]);
   final isParsing = signal(false);
   final isImporting = signal(false);
+  final importTotalCount = signal(0);
+  final importCompletedCount = signal(0);
+  final importSuccessCount = signal(0);
   final errorMessage = signal<String?>(null);
   final lastResult = signal<ImportBusinessOrdersResponse?>(null);
 
-  late final parsedCount = computed(() => parsedProIds.value.length);
+  late final parsedCount = computed(() => parsedOrders.value.length);
   late final pendingImportCount = computed(
-    () => pendingImportProIds.value.length,
+    () => pendingImportOrders.value.length,
   );
   late final canImport = computed(
-    () => pendingImportProIds.value.isNotEmpty && !isImporting.value,
+    () => pendingImportOrders.value.isNotEmpty && !isImporting.value,
   );
+  late final importProgress = computed(() {
+    if (importTotalCount.value == 0) {
+      return 0.0;
+    }
+    return importCompletedCount.value / importTotalCount.value;
+  });
 
-  Future<void> setParsedProIds({
+  Future<void> setParsedOrders({
     required String fileName,
-    required List<String> proIds,
+    required List<BusinessOrderImportItem> orders,
     required int duplicateCount,
   }) async {
     isParsing.value = true;
@@ -39,14 +48,14 @@ class ImportStore {
     lastResult.value = null;
     try {
       selectedFileName.value = fileName;
-      parsedProIds.value = proIds;
+      parsedOrders.value = orders;
       duplicateInFileCount.value = duplicateCount;
       final existing = await _orderStore.loadAllProIds();
-      final pending = proIds
-          .where((proId) => !existing.contains(proId))
+      final pending = orders
+          .where((order) => !existing.contains(order.proId))
           .toList();
-      alreadyImportedCount.value = proIds.length - pending.length;
-      pendingImportProIds.value = pending;
+      alreadyImportedCount.value = orders.length - pending.length;
+      pendingImportOrders.value = pending;
     } catch (error) {
       errorMessage.value = ApiException.from(error).message;
     } finally {
@@ -55,16 +64,28 @@ class ImportStore {
   }
 
   Future<void> importPending() async {
-    if (pendingImportProIds.value.isEmpty) {
+    final orders = pendingImportOrders.value;
+    if (orders.isEmpty) {
       return;
     }
     isImporting.value = true;
+    importTotalCount.value = orders.length;
+    importCompletedCount.value = 0;
+    importSuccessCount.value = 0;
     errorMessage.value = null;
+    lastResult.value = null;
     try {
-      final result = await _api.importBusinessOrders(pendingImportProIds.value);
-      lastResult.value = result;
-      pendingImportProIds.value = const [];
-      alreadyImportedCount.value = parsedProIds.value.length;
+      for (final order in orders) {
+        final result = await _api.importBusinessOrders([order]);
+        importCompletedCount.value += 1;
+        importSuccessCount.value += result.imported;
+      }
+      lastResult.value = ImportBusinessOrdersResponse(
+        requested: importTotalCount.value,
+        imported: importSuccessCount.value,
+      );
+      pendingImportOrders.value = const [];
+      alreadyImportedCount.value = parsedOrders.value.length;
       await _orderStore.loadPage(pageNo: 1);
     } catch (error) {
       errorMessage.value = ApiException.from(error).message;
@@ -75,10 +96,13 @@ class ImportStore {
 
   void reset() {
     selectedFileName.value = null;
-    parsedProIds.value = const [];
+    parsedOrders.value = const [];
     duplicateInFileCount.value = 0;
     alreadyImportedCount.value = 0;
-    pendingImportProIds.value = const [];
+    pendingImportOrders.value = const [];
+    importTotalCount.value = 0;
+    importCompletedCount.value = 0;
+    importSuccessCount.value = 0;
     errorMessage.value = null;
     lastResult.value = null;
   }
