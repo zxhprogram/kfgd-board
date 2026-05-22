@@ -97,3 +97,17 @@ class BusinessOrderItem {
     );
   }
 }
+
+class DailyCount {
+  const DailyCount({required this.date, required this.count});
+
+  final String date;
+  final int count;
+
+  factory DailyCount.fromJson(Map<String, dynamic> json) {
+    return DailyCount(
+      date: json['date']?.toString() ?? '',
+      count: (json['count'] as num?)?.toInt() ?? 0,
+    );
+  }
+}

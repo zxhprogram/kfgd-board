@@ -22,6 +22,7 @@ type BusinessOrderStore interface {
 	SaveZenTaoProblem(ctx context.Context, proID string, problem model.ZenTaoProblem) error
 	ListOperLogs(ctx context.Context, proID string) ([]store.SavedOperLog, error)
 	GetZenTaoProblem(ctx context.Context, proID string) (*store.SavedZenTaoProblem, error)
+	GetFlowTrend(ctx context.Context, taskStateName string) ([]store.DailyCount, error)
 }
 
 type BusinessOrderHandler struct {
@@ -143,6 +144,24 @@ func (h *BusinessOrderHandler) ZenTaoProblem(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, http.StatusOK, map[string]any{
 		"proId": proID,
 		"item":  item,
+	})
+}
+
+func (h *BusinessOrderHandler) FlowTrend(w http.ResponseWriter, r *http.Request) {
+	taskStateName := r.URL.Query().Get("taskStateName")
+	if taskStateName == "" {
+		taskStateName = "待处理（属地开发组分析）"
+	}
+
+	items, err := h.store.GetFlowTrend(r.Context(), taskStateName)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"taskStateName": taskStateName,
+		"items":         items,
 	})
 }
 

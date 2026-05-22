@@ -62,6 +62,14 @@ class _ExpandableSidebarState extends State<ExpandableSidebar> {
               ),
               const Gap(24),
               _SidebarItem(
+                icon: RadixIcons.barChart,
+                label: '数据总览',
+                expanded: isExpanded,
+                selected: location == '/overview',
+                onPressed: () => context.go('/overview'),
+              ),
+              const Gap(8),
+              _SidebarItem(
                 icon: RadixIcons.table,
                 label: '数据列表',
                 expanded: isExpanded,

@@ -44,6 +44,7 @@ dependencies:
   cross_file: ^0.3.5+2
   signals_flutter: ^6.3.0
   pluto_grid: 8.1.0
+  fl_chart: 1.2.0
 
 dev_dependencies:
   flutter_test:

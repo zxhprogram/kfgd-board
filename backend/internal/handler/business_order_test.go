@@ -64,6 +64,10 @@ func (s *fakeBusinessOrderStore) GetZenTaoProblem(ctx context.Context, proID str
 	return nil, nil
 }
 
+func (s *fakeBusinessOrderStore) GetFlowTrend(ctx context.Context, taskStateName string) ([]store.DailyCount, error) {
+	return nil, nil
+}
+
 func TestBusinessOrderHandlerImport(t *testing.T) {
 	store := newFakeBusinessOrderStore()
 	handler := NewBusinessOrderHandler(fakeBusinessOrderDetailFetcher{values: map[string]*model.BusinessOrderValue{

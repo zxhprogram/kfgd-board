@@ -47,6 +47,11 @@ type SavedZenTaoProblem struct {
 	CreatedAt string              `json:"createdAt"`
 }
 
+type DailyCount struct {
+	Date  string `json:"date"`
+	Count int    `json:"count"`
+}
+
 func OpenOrderStore(dbPath string) (*OrderStore, error) {
 	if dbPath == "" {
 		dbPath = os.Getenv("SQLITE_PATH")
@@ -335,4 +340,34 @@ WHERE pro_id = ?
 		return nil, err
 	}
 	return &item, nil
+}
+
+func (s *OrderStore) GetFlowTrend(ctx context.Context, taskStateName string) ([]DailyCount, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT day, COUNT(*) AS count FROM (
+  SELECT DATE(MIN(json_extract(raw_json, '$.createTime'))) AS day
+  FROM business_order_oper_logs
+  WHERE json_extract(raw_json, '$.proTaskStateName') = ?
+  GROUP BY pro_id
+) sub
+GROUP BY day
+ORDER BY day
+`, taskStateName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]DailyCount, 0)
+	for rows.Next() {
+		var item DailyCount
+		if err := rows.Scan(&item.Date, &item.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

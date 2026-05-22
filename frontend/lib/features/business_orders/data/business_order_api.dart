@@ -41,4 +41,24 @@ class BusinessOrderApi {
       throw ApiException.from(error);
     }
   }
+
+  Future<List<DailyCount>> getFlowTrend({String? taskStateName}) async {
+    try {
+      final params = <String, dynamic>{};
+      if (taskStateName != null && taskStateName.isNotEmpty) {
+        params['taskStateName'] = taskStateName;
+      }
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/business-orders/flow-trend',
+        queryParameters: params,
+      );
+      final items = (response.data?['items'] as List?) ?? const [];
+      return items
+          .whereType<Map>()
+          .map((item) => DailyCount.fromJson(item.cast<String, dynamic>()))
+          .toList();
+    } catch (error) {
+      throw ApiException.from(error);
+    }
+  }
 }
