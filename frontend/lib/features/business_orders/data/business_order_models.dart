@@ -68,6 +68,7 @@ class BusinessOrderItem {
     required this.createTime,
     required this.updateTime,
     required this.savedAt,
+    required this.processDuration,
     required this.raw,
   });
 
@@ -80,6 +81,7 @@ class BusinessOrderItem {
   final String createTime;
   final String updateTime;
   final String savedAt;
+  final String processDuration;
   final Map<String, dynamic> raw;
 
   factory BusinessOrderItem.fromJson(Map<String, dynamic> json) {
@@ -93,6 +95,7 @@ class BusinessOrderItem {
       createTime: json['createTime']?.toString() ?? '',
       updateTime: json['updateTime']?.toString() ?? '',
       savedAt: json['savedAt']?.toString() ?? '',
+      processDuration: json['processDuration']?.toString() ?? '',
       raw: (json['raw'] as Map?)?.cast<String, dynamic>() ?? const {},
     );
   }

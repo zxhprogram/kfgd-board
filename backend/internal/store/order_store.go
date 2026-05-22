@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"backend/internal/model"
 
@@ -20,16 +22,17 @@ type OrderStore struct {
 }
 
 type SavedBusinessOrder struct {
-	ProId         string                   `json:"proId"`
-	ExternalNo    string                   `json:"externalNo"`
-	ProTitle      string                   `json:"proTitle"`
-	CustomerName  string                   `json:"customerName"`
-	CustomerPhone string                   `json:"customerPhone"`
-	ProState      int                      `json:"proState"`
-	CreateTime    string                   `json:"createTime"`
-	UpdateTime    string                   `json:"updateTime"`
-	Raw           model.BusinessOrderValue `json:"raw"`
-	SavedAt       string                   `json:"savedAt"`
+	ProId           string                   `json:"proId"`
+	ExternalNo      string                   `json:"externalNo"`
+	ProTitle        string                   `json:"proTitle"`
+	CustomerName    string                   `json:"customerName"`
+	CustomerPhone   string                   `json:"customerPhone"`
+	ProState        int                      `json:"proState"`
+	CreateTime      string                   `json:"createTime"`
+	UpdateTime      string                   `json:"updateTime"`
+	Raw             model.BusinessOrderValue `json:"raw"`
+	SavedAt         string                   `json:"savedAt"`
+	ProcessDuration string                   `json:"processDuration"`
 }
 
 type SavedOperLog struct {
@@ -254,7 +257,73 @@ LIMIT ? OFFSET ?
 		return nil, 0, err
 	}
 
+	for i := range items {
+		startTime, resolveTime, duration := s.computeProcessTimes(ctx, items[i].ProId)
+		if startTime != "" {
+			items[i].CreateTime = startTime
+		}
+		items[i].UpdateTime = resolveTime
+		items[i].ProcessDuration = duration
+	}
+
 	return items, total, nil
+}
+
+func (s *OrderStore) computeProcessTimes(ctx context.Context, proID string) (startTime, resolveTime, duration string) {
+	var startTimeStr sql.NullString
+	_ = s.db.QueryRowContext(ctx, `
+SELECT json_extract(raw_json, '$.createTime')
+FROM business_order_oper_logs
+WHERE pro_id = ? AND json_extract(raw_json, '$.proTaskStateName') = '待处理（属地开发组分析）'
+ORDER BY json_extract(raw_json, '$.createTime') ASC
+LIMIT 1
+`, proID).Scan(&startTimeStr)
+
+	if !startTimeStr.Valid || startTimeStr.String == "" {
+		return "", "", ""
+	}
+
+	startTime = startTimeStr.String
+	st, err := time.Parse("2006-01-02 15:04:05", startTimeStr.String)
+	if err != nil {
+		return startTime, "", ""
+	}
+
+	var endTimeStr sql.NullString
+	_ = s.db.QueryRowContext(ctx, `
+SELECT json_extract(raw_json, '$.createTime')
+FROM business_order_oper_logs
+WHERE pro_id = ? AND json_extract(raw_json, '$.proTaskStateName') = '待处理（验证）'
+ORDER BY json_extract(raw_json, '$.createTime') DESC
+LIMIT 1
+`, proID).Scan(&endTimeStr)
+
+	var et time.Time
+	if endTimeStr.Valid && endTimeStr.String != "" {
+		resolveTime = endTimeStr.String
+		et, err = time.Parse("2006-01-02 15:04:05", endTimeStr.String)
+		if err != nil {
+			resolveTime = ""
+			et = time.Now()
+		}
+	} else {
+		resolveTime = ""
+		et = time.Now()
+	}
+
+	d := et.Sub(st)
+	days := int(d.Hours()) / 24
+	hours := int(d.Hours()) % 24
+	minutes := int(d.Minutes()) % 60
+
+	if days > 0 {
+		duration = fmt.Sprintf("%dd %dh %dm", days, hours, minutes)
+	} else if hours > 0 {
+		duration = fmt.Sprintf("%dh %dm", hours, minutes)
+	} else {
+		duration = fmt.Sprintf("%dm", minutes)
+	}
+	return startTime, resolveTime, duration
 }
 
 func (s *OrderStore) SaveOperLogs(ctx context.Context, proID string, logs []model.OperLogVo) error {
