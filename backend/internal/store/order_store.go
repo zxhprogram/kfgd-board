@@ -32,6 +32,21 @@ type SavedBusinessOrder struct {
 	SavedAt       string                   `json:"savedAt"`
 }
 
+type SavedOperLog struct {
+	Id        int64           `json:"id"`
+	ProId     string          `json:"proId"`
+	OperId    string          `json:"operId"`
+	Raw       model.OperLogVo `json:"raw"`
+	CreatedAt string          `json:"createdAt"`
+}
+
+type SavedZenTaoProblem struct {
+	Id        int64               `json:"id"`
+	ProId     string              `json:"proId"`
+	Raw       model.ZenTaoProblem `json:"raw"`
+	CreatedAt string              `json:"createdAt"`
+}
+
 func OpenOrderStore(dbPath string) (*OrderStore, error) {
 	if dbPath == "" {
 		dbPath = os.Getenv("SQLITE_PATH")
@@ -76,6 +91,22 @@ CREATE TABLE IF NOT EXISTS business_orders (
 	saved_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_business_orders_saved_at ON business_orders(saved_at);
+
+CREATE TABLE IF NOT EXISTS business_order_oper_logs (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	pro_id TEXT NOT NULL,
+	oper_id TEXT NOT NULL UNIQUE,
+	raw_json TEXT NOT NULL,
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_oper_logs_pro_id ON business_order_oper_logs(pro_id);
+
+CREATE TABLE IF NOT EXISTS business_order_zen_tao_problems (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	pro_id TEXT NOT NULL UNIQUE,
+	raw_json TEXT NOT NULL,
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 `)
 	if err != nil {
 		return err
@@ -161,7 +192,7 @@ ON CONFLICT(pro_id) DO UPDATE SET
 	return tx.Commit()
 }
 
-func (s *OrderStore) ListOrders(ctx context.Context, pageNo int, pageSize int) ([]SavedBusinessOrder, int, error) {
+func (s *OrderStore) ListOrders(ctx context.Context, pageNo int, pageSize int, proIdFilter string) ([]SavedBusinessOrder, int, error) {
 	if pageNo < 1 {
 		pageNo = 1
 	}
@@ -171,16 +202,32 @@ func (s *OrderStore) ListOrders(ctx context.Context, pageNo int, pageSize int) (
 	offset := (pageNo - 1) * pageSize
 
 	var total int
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM business_orders`).Scan(&total); err != nil {
-		return nil, 0, err
-	}
+	var rows *sql.Rows
+	var err error
 
-	rows, err := s.db.QueryContext(ctx, `
+	if proIdFilter != "" {
+		pattern := "%" + proIdFilter + "%"
+		if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM business_orders WHERE pro_id LIKE ?`, pattern).Scan(&total); err != nil {
+			return nil, 0, err
+		}
+		rows, err = s.db.QueryContext(ctx, `
+SELECT pro_id, external_no, pro_title, customer_name, customer_phone, pro_state, create_time, update_time, raw_json, saved_at
+FROM business_orders
+WHERE pro_id LIKE ?
+ORDER BY saved_at DESC, pro_id DESC
+LIMIT ? OFFSET ?
+`, pattern, pageSize, offset)
+	} else {
+		if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM business_orders`).Scan(&total); err != nil {
+			return nil, 0, err
+		}
+		rows, err = s.db.QueryContext(ctx, `
 SELECT pro_id, external_no, pro_title, customer_name, customer_phone, pro_state, create_time, update_time, raw_json, saved_at
 FROM business_orders
 ORDER BY saved_at DESC, pro_id DESC
 LIMIT ? OFFSET ?
 `, pageSize, offset)
+	}
 	if err != nil {
 		return nil, 0, err
 	}
@@ -203,4 +250,89 @@ LIMIT ? OFFSET ?
 	}
 
 	return items, total, nil
+}
+
+func (s *OrderStore) SaveOperLogs(ctx context.Context, proID string, logs []model.OperLogVo) error {
+	if len(logs) == 0 {
+		return nil
+	}
+	for _, log := range logs {
+		if log.OperId == "" {
+			continue
+		}
+		raw, err := json.Marshal(log)
+		if err != nil {
+			return err
+		}
+		_, err = s.db.ExecContext(ctx, `
+INSERT OR IGNORE INTO business_order_oper_logs (pro_id, oper_id, raw_json)
+VALUES (?, ?, ?)
+`, proID, log.OperId, string(raw))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *OrderStore) SaveZenTaoProblem(ctx context.Context, proID string, problem model.ZenTaoProblem) error {
+	raw, err := json.Marshal(problem)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.ExecContext(ctx, `
+INSERT OR REPLACE INTO business_order_zen_tao_problems (pro_id, raw_json)
+VALUES (?, ?)
+`, proID, string(raw))
+	return err
+}
+
+func (s *OrderStore) ListOperLogs(ctx context.Context, proID string) ([]SavedOperLog, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT id, pro_id, oper_id, raw_json, created_at
+FROM business_order_oper_logs
+WHERE pro_id = ?
+ORDER BY created_at ASC
+`, proID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]SavedOperLog, 0)
+	for rows.Next() {
+		var item SavedOperLog
+		var raw string
+		if err := rows.Scan(&item.Id, &item.ProId, &item.OperId, &raw, &item.CreatedAt); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal([]byte(raw), &item.Raw); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (s *OrderStore) GetZenTaoProblem(ctx context.Context, proID string) (*SavedZenTaoProblem, error) {
+	var item SavedZenTaoProblem
+	var raw string
+	err := s.db.QueryRowContext(ctx, `
+SELECT id, pro_id, raw_json, created_at
+FROM business_order_zen_tao_problems
+WHERE pro_id = ?
+`, proID).Scan(&item.Id, &item.ProId, &raw, &item.CreatedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if err := json.Unmarshal([]byte(raw), &item.Raw); err != nil {
+		return nil, err
+	}
+	return &item, nil
 }

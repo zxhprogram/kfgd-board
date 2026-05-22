@@ -25,11 +25,16 @@ class BusinessOrderApi {
   Future<BusinessOrderPage> listBusinessOrders({
     required int pageNo,
     required int pageSize,
+    String? proId,
   }) async {
     try {
+      final params = <String, dynamic>{'pageNo': pageNo, 'pageSize': pageSize};
+      if (proId != null && proId.isNotEmpty) {
+        params['proId'] = proId;
+      }
       final response = await _dio.get<Map<String, dynamic>>(
         '/business-orders',
-        queryParameters: {'pageNo': pageNo, 'pageSize': pageSize},
+        queryParameters: params,
       );
       return BusinessOrderPage.fromJson(response.data ?? const {});
     } catch (error) {

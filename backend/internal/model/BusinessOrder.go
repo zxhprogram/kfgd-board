@@ -14,6 +14,76 @@ type BusinessOrder struct {
 	} `json:"data"`
 }
 
+type BusinessOrderDetail struct {
+	ResultStat string             `json:"resultStat"`
+	Mess       string             `json:"mess"`
+	Data       BusinessOrderValue `json:"data"`
+}
+
+type OperLogVo struct {
+	Id               any    `json:"id"`
+	OperId           string `json:"operId"`
+	ProId            string `json:"proId"`
+	ProState         int    `json:"proState"`
+	ProSonState      int    `json:"proSonState"`
+	ProTaskState     int    `json:"proTaskState"`
+	ProTaskStateName string `json:"proTaskStateName"`
+	ProStateName     string `json:"proStateName"`
+	Sponsor          string `json:"sponsor"`
+	SponsorId        string `json:"sponsorId"`
+	SponsorUserName  string `json:"sponsorUserName"`
+	SponsorName      string `json:"sponsorName"`
+	SponsorPhone     string `json:"sponsorPhone"`
+	Receiver         string `json:"receiver"`
+	ReceiverId       string `json:"receiverId"`
+	ReceiverUserName string `json:"receiverUserName"`
+	ReceiverName     string `json:"receiverName"`
+	ReceiverPhone    string `json:"receiverPhone"`
+	DescMsg          string `json:"descMsg"`
+	Remarks          string `json:"remarks"`
+	IsValid          string `json:"isValid"`
+	CreatorId        string `json:"creatorId"`
+	Creator          string `json:"creator"`
+	CreateTime       string `json:"createTime"`
+	UpdateTime       string `json:"updateTime"`
+}
+
+type ZenTaoProblem struct {
+	PageSize        int    `json:"pageSize"`
+	PageNum         int    `json:"pageNum"`
+	PageNo          int    `json:"pageNo"`
+	IsExport        bool   `json:"isExport"`
+	Enable          bool   `json:"enable"`
+	Id              any    `json:"id"`
+	ParentCode      string `json:"parentCode"`
+	ChildrenCode    string `json:"childrenCode"`
+	BugId           string `json:"bugId"`
+	Product         string `json:"product"`
+	Module          string `json:"module"`
+	ModuleName      string `json:"moduleName"`
+	OpenedBuild     string `json:"openedBuild"`
+	OpenedBuildName string `json:"openedBuildName"`
+	Deadline        string `json:"deadline"`
+	Type            string `json:"type"`
+	TypeName        string `json:"typeName"`
+	Os              string `json:"os"`
+	Title           string `json:"title"`
+	Severity        int    `json:"severity"`
+	SeverityName    string `json:"severityName"`
+	Pri             string `json:"pri"`
+	Steps           string `json:"steps"`
+	SolveBuild      string `json:"solveBuild"`
+	SolvePlan       string `json:"solvePlan"`
+	SolveUser       string `json:"solveUser"`
+	SolveDate       string `json:"solveDate"`
+	SolveSystemCode string `json:"solveSystemCode"`
+	DevelopPackage  string `json:"developPackage"`
+	IsLock          bool   `json:"isLock"`
+	LiftLockType    int    `json:"liftLockType"`
+	CreateTime      string `json:"createTime"`
+	UpdateTime      string `json:"updateTime"`
+}
+
 type BusinessOrderValue struct {
 	Id                    int64  `json:"id"`
 	ProId                 string `json:"proId"`
@@ -101,7 +171,7 @@ type BusinessOrderValue struct {
 	EnableProcess         bool   `json:"enableProcess"`
 	IfOperation           bool   `json:"ifOperation"`
 	WhichPlatformName     string `json:"whichPlatformName"`
-	NoHtmlProContent      bool   `json:"noHtmlProContent"`
+	NoHtmlProContent      string `json:"noHtmlProContent"`
 	Aging                 int    `json:"aging"`
 	OtherCode             string `json:"otherCode"`
 	BugType               string `json:"bugType"`
@@ -118,41 +188,19 @@ type BusinessOrderValue struct {
 		RevertType   string `json:"revertType"`
 		SplitType    int    `json:"splitType"`
 	} `json:"flowTaskProblemVo"`
-	ProTaskState     int    `json:"proTaskState"`
-	SystemCode       string `json:"systemCode"`
-	SystemCodeName   string `json:"systemCodeName"`
-	DispatchDuration string `json:"dispatchDuration"`
-	IntegratedUserId string `json:"integratedUserId"`
-	OperationUserId  string `json:"operationUserId"`
-	ZenTaoProblem    struct {
-		PageSize        int    `json:"pageSize"`
-		PageNum         int    `json:"pageNum"`
-		PageNo          int    `json:"pageNo"`
-		IsExport        bool   `json:"isExport"`
-		Enable          bool   `json:"enable"`
-		Id              any    `json:"id"`
-		ParentCode      string `json:"parentCode"`
-		BugId           string `json:"bugId"`
-		Product         string `json:"product"`
-		Module          string `json:"module"`
-		ModuleName      string `json:"moduleName"`
-		OpenedBuild     string `json:"openedBuild"`
-		OpenedBuildName string `json:"openedBuildName"`
-		Type            string `json:"type"`
-		TypeName        string `json:"typeName"`
-		Os              string `json:"os"`
-		Title           string `json:"title"`
-		Severity        int    `json:"severity"`
-		SeverityName    string `json:"severityName"`
-		CreateTime      string `json:"createTime"`
-		UpdateTime      string `json:"updateTime"`
-		IsLock          bool   `json:"isLock"`
-	} `json:"zenTaoProblem"`
-	OpenedBuild     string `json:"openedBuild"`
-	OpenedBuildName string `json:"openedBuildName"`
-	LastUpdate      string `json:"lastUpdate"`
-	CloseTime       string `json:"closeTime"`
-	SolveType       int    `json:"solveType"`
-	SolveTypeName   string `json:"solveTypeName"`
-	ProblemSource   string `json:"problemSource"`
+	ProTaskState     int           `json:"proTaskState"`
+	SystemCode       string        `json:"systemCode"`
+	SystemCodeName   string        `json:"systemCodeName"`
+	DispatchDuration string        `json:"dispatchDuration"`
+	IntegratedUserId string        `json:"integratedUserId"`
+	OperationUserId  string        `json:"operationUserId"`
+	OperLogVoList    []OperLogVo   `json:"operLogVoList"`
+	ZenTaoProblem    ZenTaoProblem `json:"zenTaoProblem"`
+	OpenedBuild      string        `json:"openedBuild"`
+	OpenedBuildName  string        `json:"openedBuildName"`
+	LastUpdate       string        `json:"lastUpdate"`
+	CloseTime        string        `json:"closeTime"`
+	SolveType        int           `json:"solveType"`
+	SolveTypeName    string        `json:"solveTypeName"`
+	ProblemSource    string        `json:"problemSource"`
 }

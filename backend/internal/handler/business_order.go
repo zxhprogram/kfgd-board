@@ -11,17 +11,21 @@ import (
 	"backend/internal/store"
 )
 
-type BusinessOrderFetcher interface {
-	FetchByProID(ctx context.Context, proID string) ([]model.BusinessOrderValue, error)
+type BusinessOrderDetailFetcher interface {
+	FetchDetail(ctx context.Context, proID string) (*model.BusinessOrderValue, error)
 }
 
 type BusinessOrderStore interface {
 	UpsertOrders(ctx context.Context, values []model.BusinessOrderValue) error
-	ListOrders(ctx context.Context, pageNo int, pageSize int) ([]store.SavedBusinessOrder, int, error)
+	ListOrders(ctx context.Context, pageNo int, pageSize int, proIdFilter string) ([]store.SavedBusinessOrder, int, error)
+	SaveOperLogs(ctx context.Context, proID string, logs []model.OperLogVo) error
+	SaveZenTaoProblem(ctx context.Context, proID string, problem model.ZenTaoProblem) error
+	ListOperLogs(ctx context.Context, proID string) ([]store.SavedOperLog, error)
+	GetZenTaoProblem(ctx context.Context, proID string) (*store.SavedZenTaoProblem, error)
 }
 
 type BusinessOrderHandler struct {
-	fetcher BusinessOrderFetcher
+	fetcher BusinessOrderDetailFetcher
 	store   BusinessOrderStore
 }
 
@@ -35,7 +39,7 @@ type importBusinessOrderItem struct {
 	ExternalNo string `json:"externalNo"`
 }
 
-func NewBusinessOrderHandler(fetcher BusinessOrderFetcher, store BusinessOrderStore) *BusinessOrderHandler {
+func NewBusinessOrderHandler(fetcher BusinessOrderDetailFetcher, store BusinessOrderStore) *BusinessOrderHandler {
 	return &BusinessOrderHandler{fetcher: fetcher, store: store}
 }
 
@@ -52,27 +56,33 @@ func (h *BusinessOrderHandler) Import(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	values := make([]model.BusinessOrderValue, 0)
+	imported := 0
 	for _, order := range orders {
-		items, err := h.fetcher.FetchByProID(r.Context(), order.ProID)
+		detail, err := h.fetcher.FetchDetail(r.Context(), order.ProID)
 		if err != nil {
 			writeJSONError(w, http.StatusBadGateway, err.Error())
 			return
 		}
-		for i := range items {
-			items[i].ExternalNo = order.ExternalNo
-		}
-		values = append(values, items...)
-	}
+		detail.ExternalNo = order.ExternalNo
 
-	if err := h.store.UpsertOrders(r.Context(), values); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
-		return
+		if err := h.store.UpsertOrders(r.Context(), []model.BusinessOrderValue{*detail}); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if err := h.store.SaveOperLogs(r.Context(), order.ProID, detail.OperLogVoList); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if err := h.store.SaveZenTaoProblem(r.Context(), order.ProID, detail.ZenTaoProblem); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		imported++
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"requested": len(orders),
-		"imported":  len(values),
+		"imported":  imported,
 	})
 }
 
@@ -82,8 +92,9 @@ func (h *BusinessOrderHandler) List(w http.ResponseWriter, r *http.Request) {
 	if pageSize > 100 {
 		pageSize = 100
 	}
+	proIdFilter := r.URL.Query().Get("proId")
 
-	items, total, err := h.store.ListOrders(r.Context(), pageNo, pageSize)
+	items, total, err := h.store.ListOrders(r.Context(), pageNo, pageSize, proIdFilter)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -94,6 +105,44 @@ func (h *BusinessOrderHandler) List(w http.ResponseWriter, r *http.Request) {
 		"pageNo":   pageNo,
 		"pageSize": pageSize,
 		"total":    total,
+	})
+}
+
+func (h *BusinessOrderHandler) OperLogs(w http.ResponseWriter, r *http.Request) {
+	proID := r.PathValue("proId")
+	if proID == "" {
+		writeJSONError(w, http.StatusBadRequest, "proId is required")
+		return
+	}
+
+	items, err := h.store.ListOperLogs(r.Context(), proID)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"proId": proID,
+		"items": items,
+	})
+}
+
+func (h *BusinessOrderHandler) ZenTaoProblem(w http.ResponseWriter, r *http.Request) {
+	proID := r.PathValue("proId")
+	if proID == "" {
+		writeJSONError(w, http.StatusBadRequest, "proId is required")
+		return
+	}
+
+	item, err := h.store.GetZenTaoProblem(r.Context(), proID)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"proId": proID,
+		"item":  item,
 	})
 }
 

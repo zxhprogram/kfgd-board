@@ -16,6 +16,7 @@ class BusinessOrderStore {
   final total = signal(0);
   final isLoading = signal(false);
   final errorMessage = signal<String?>(null);
+  final proIdFilter = signal('');
 
   late final totalPages = computed(() {
     final size = pageSize.value;
@@ -29,13 +30,18 @@ class BusinessOrderStore {
   late final hasPreviousPage = computed(() => pageNo.value > 1);
   late final hasNextPage = computed(() => pageNo.value < totalPages.value);
 
-  Future<void> loadPage({int? pageNo, int? pageSize}) async {
+  Future<void> loadPage({int? pageNo, int? pageSize, String? proId}) async {
     isLoading.value = true;
     errorMessage.value = null;
     try {
+      final filter = proId ?? proIdFilter.value;
+      if (proId != null) {
+        proIdFilter.value = proId;
+      }
       final page = await _api.listBusinessOrders(
         pageNo: pageNo ?? this.pageNo.value,
         pageSize: pageSize ?? this.pageSize.value,
+        proId: filter.isNotEmpty ? filter : null,
       );
       orders.value = page.items;
       this.pageNo.value = page.pageNo;

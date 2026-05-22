@@ -142,3 +142,14 @@ func TestAAA(t *testing.T) {
 	}).SetResult(&order).Post("https://kfgdui-prd.chinatowercom.cn:8300/api/problem/problemYg/list")
 	fmt.Println(order)
 }
+
+func TestBBB(t *testing.T) {
+	client := resty.New()
+	r, _ := client.R().SetHeaders(map[string]string{
+		"Content-Type":  "application/x-www-form-urlencoded",
+		"Authorization": "bearer e284f681-61b9-4443-801a-eb0ad0278eba",
+	}).SetFormData(map[string]string{
+		"proId": "360000202603300932016890",
+	}).Post("https://kfgdui-prd.chinatowercom.cn:8300/api/problem/problemYg/getYgProDetail")
+	fmt.Println(r)
+}

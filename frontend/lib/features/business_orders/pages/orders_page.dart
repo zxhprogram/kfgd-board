@@ -14,12 +14,25 @@ class OrdersPage extends StatefulWidget {
 }
 
 class _OrdersPageState extends State<OrdersPage> {
+  final _proIdController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
+    _proIdController.text = businessOrderStore.proIdFilter.value;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       businessOrderStore.loadPage();
     });
+  }
+
+  @override
+  void dispose() {
+    _proIdController.dispose();
+    super.dispose();
+  }
+
+  void _applyFilter() {
+    businessOrderStore.loadPage(pageNo: 1, proId: _proIdController.text);
   }
 
   @override
@@ -65,7 +78,32 @@ class _OrdersPageState extends State<OrdersPage> {
               ),
             ],
           ),
-          const Gap(24),
+          const Gap(16),
+          Row(
+            children: [
+              const Text('工单编号筛选：'),
+              const Gap(8),
+              SizedBox(
+                width: 280,
+                child: TextField(
+                  controller: _proIdController,
+                  placeholder: const Text('输入 proId 关键字'),
+                  onSubmitted: (_) => _applyFilter(),
+                ),
+              ),
+              const Gap(8),
+              Button.primary(onPressed: _applyFilter, child: const Text('查询')),
+              const Gap(8),
+              Button.outline(
+                onPressed: () {
+                  _proIdController.clear();
+                  store.loadPage(pageNo: 1, proId: '');
+                },
+                child: const Text('清除'),
+              ),
+            ],
+          ),
+          const Gap(16),
           if (error != null)
             Card(
               child: Padding(
