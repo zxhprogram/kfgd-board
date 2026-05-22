@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go test *)",
+      "Bash(gofmt *)",
+      "WebSearch",
+      "WebFetch(domain:pub.dev)",
+      "WebFetch(domain:github.com)",
+      "Bash(flutter pub *)",
+      "Bash(dart -e \"import 'package:pluto_grid/pluto_grid.dart'; print\\('PlutoColumn fields:'\\); print\\(PlutoColumn.new\\); print\\('PlutoGrid:'\\); print\\(PlutoGrid.new\\);\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(p['rootUri']\\) for p in d['packages'] if 'pluto' in p['name']]\")",
+      "Bash(go build *)",
+      "Bash(flutter analyze *)",
+      "Bash(flutter test *)",
+      "Bash(dart format *)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 *)"
+    ]
+  }
+}
