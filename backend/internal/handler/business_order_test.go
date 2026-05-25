@@ -27,12 +27,14 @@ type fakeBusinessOrderStore struct {
 	values      []model.BusinessOrderValue
 	operLogs    map[string][]model.OperLogVo
 	zenTaoProbs map[string]model.ZenTaoProblem
+	childLists  map[string][]model.ChildItem
 }
 
 func newFakeBusinessOrderStore() *fakeBusinessOrderStore {
 	return &fakeBusinessOrderStore{
 		operLogs:    make(map[string][]model.OperLogVo),
 		zenTaoProbs: make(map[string]model.ZenTaoProblem),
+		childLists:  make(map[string][]model.ChildItem),
 	}
 }
 
@@ -70,6 +72,11 @@ func (s *fakeBusinessOrderStore) GetFlowTrend(ctx context.Context, taskStateName
 
 func (s *fakeBusinessOrderStore) ListAllProIds(ctx context.Context) ([]string, error) {
 	return nil, nil
+}
+
+func (s *fakeBusinessOrderStore) SaveChildList(ctx context.Context, parentProID string, children []model.ChildItem) error {
+	s.childLists[parentProID] = children
+	return nil
 }
 
 func TestBusinessOrderHandlerImport(t *testing.T) {

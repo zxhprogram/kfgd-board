@@ -50,6 +50,12 @@ type SavedZenTaoProblem struct {
 	CreatedAt string              `json:"createdAt"`
 }
 
+type SavedChildItem struct {
+	Id          int64  `json:"id"`
+	ProId       string `json:"proId"`
+	ParentProId string `json:"parentProId"`
+}
+
 type DailyCount struct {
 	Date  string `json:"date"`
 	Count int    `json:"count"`
@@ -115,6 +121,16 @@ CREATE TABLE IF NOT EXISTS business_order_zen_tao_problems (
 	raw_json TEXT NOT NULL,
 	created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS business_order_children (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	pro_id TEXT NOT NULL,
+	parent_pro_id TEXT NOT NULL,
+	remote_id INTEGER NOT NULL,
+	UNIQUE(pro_id, parent_pro_id)
+);
+CREATE INDEX IF NOT EXISTS idx_children_pro_id ON business_order_children(pro_id);
+CREATE INDEX IF NOT EXISTS idx_children_parent_pro_id ON business_order_children(parent_pro_id);
 `)
 	if err != nil {
 		return err
@@ -409,6 +425,29 @@ WHERE pro_id = ?
 		return nil, err
 	}
 	return &item, nil
+}
+
+func (s *OrderStore) SaveChildList(ctx context.Context, parentProID string, children []model.ChildItem) error {
+	if len(children) == 0 {
+		return nil
+	}
+	_, err := s.db.ExecContext(ctx, `DELETE FROM business_order_children WHERE parent_pro_id = ?`, parentProID)
+	if err != nil {
+		return err
+	}
+	for _, child := range children {
+		if child.ProId == "" {
+			continue
+		}
+		_, err = s.db.ExecContext(ctx, `
+INSERT OR IGNORE INTO business_order_children (pro_id, parent_pro_id, remote_id)
+VALUES (?, ?, ?)
+`, child.ProId, parentProID, child.Id)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *OrderStore) ListAllProIds(ctx context.Context) ([]string, error) {

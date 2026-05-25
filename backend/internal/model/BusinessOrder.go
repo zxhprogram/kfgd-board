@@ -84,6 +84,12 @@ type ZenTaoProblem struct {
 	UpdateTime      string `json:"updateTime"`
 }
 
+type ChildItem struct {
+	Id          int64  `json:"id"`
+	ProId       string `json:"proId"`
+	ParentProId string `json:"parentProId"`
+}
+
 type BusinessOrderValue struct {
 	Id                    int64  `json:"id"`
 	ProId                 string `json:"proId"`
@@ -196,6 +202,7 @@ type BusinessOrderValue struct {
 	OperationUserId  string        `json:"operationUserId"`
 	OperLogVoList    []OperLogVo   `json:"operLogVoList"`
 	ZenTaoProblem    ZenTaoProblem `json:"zenTaoProblem"`
+	ChildList        []ChildItem   `json:"childList"`
 	OpenedBuild      string        `json:"openedBuild"`
 	OpenedBuildName  string        `json:"openedBuildName"`
 	LastUpdate       string        `json:"lastUpdate"`

@@ -24,6 +24,7 @@ type BusinessOrderStore interface {
 	GetZenTaoProblem(ctx context.Context, proID string) (*store.SavedZenTaoProblem, error)
 	GetFlowTrend(ctx context.Context, taskStateName string) ([]store.DailyCount, error)
 	ListAllProIds(ctx context.Context) ([]string, error)
+	SaveChildList(ctx context.Context, parentProID string, children []model.ChildItem) error
 }
 
 type BusinessOrderHandler struct {
@@ -76,6 +77,10 @@ func (h *BusinessOrderHandler) Import(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err := h.store.SaveZenTaoProblem(r.Context(), order.ProID, detail.ZenTaoProblem); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if err := h.store.SaveChildList(r.Context(), order.ProID, detail.ChildList); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -205,6 +210,9 @@ func (h *BusinessOrderHandler) Sync(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if err := h.store.SaveZenTaoProblem(r.Context(), proID, detail.ZenTaoProblem); err != nil {
+			continue
+		}
+		if err := h.store.SaveChildList(r.Context(), proID, detail.ChildList); err != nil {
 			continue
 		}
 		synced++
