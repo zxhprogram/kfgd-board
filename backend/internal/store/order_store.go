@@ -411,6 +411,27 @@ WHERE pro_id = ?
 	return &item, nil
 }
 
+func (s *OrderStore) ListAllProIds(ctx context.Context) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT pro_id FROM business_orders ORDER BY pro_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := make([]string, 0)
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return ids, nil
+}
+
 func (s *OrderStore) GetFlowTrend(ctx context.Context, taskStateName string) ([]DailyCount, error) {
 	rows, err := s.db.QueryContext(ctx, `
 SELECT day, COUNT(*) AS count FROM (

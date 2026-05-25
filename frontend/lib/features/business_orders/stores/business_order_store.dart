@@ -17,6 +17,9 @@ class BusinessOrderStore {
   final isLoading = signal(false);
   final errorMessage = signal<String?>(null);
   final proIdFilter = signal('');
+  final isSyncing = signal(false);
+  final syncCompletedCount = signal(0);
+  final syncTotalCount = signal(0);
 
   late final totalPages = computed(() {
     final size = pageSize.value;
@@ -56,6 +59,36 @@ class BusinessOrderStore {
 
   Future<void> refresh() {
     return loadPage(pageNo: pageNo.value, pageSize: pageSize.value);
+  }
+
+  Future<void> syncAll() async {
+    isSyncing.value = true;
+    syncCompletedCount.value = 0;
+    syncTotalCount.value = 0;
+    errorMessage.value = null;
+    try {
+      const batchSize = 50;
+      var currentPage = 1;
+      while (true) {
+        final result = await _api.syncBusinessOrders(
+          pageNo: currentPage,
+          pageSize: batchSize,
+        );
+        final synced = (result['synced'] as num?)?.toInt() ?? 0;
+        final total = (result['total'] as num?)?.toInt() ?? 0;
+        syncTotalCount.value = total;
+        syncCompletedCount.value += synced;
+        if (syncCompletedCount.value >= total || synced == 0) {
+          break;
+        }
+        currentPage++;
+      }
+      await loadPage(pageNo: 1);
+    } catch (error) {
+      errorMessage.value = ApiException.from(error).message;
+    } finally {
+      isSyncing.value = false;
+    }
   }
 
   Future<Set<String>> loadAllProIds() async {

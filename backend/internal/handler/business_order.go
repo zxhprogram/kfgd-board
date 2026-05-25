@@ -23,6 +23,7 @@ type BusinessOrderStore interface {
 	ListOperLogs(ctx context.Context, proID string) ([]store.SavedOperLog, error)
 	GetZenTaoProblem(ctx context.Context, proID string) (*store.SavedZenTaoProblem, error)
 	GetFlowTrend(ctx context.Context, taskStateName string) ([]store.DailyCount, error)
+	ListAllProIds(ctx context.Context) ([]string, error)
 }
 
 type BusinessOrderHandler struct {
@@ -162,6 +163,56 @@ func (h *BusinessOrderHandler) FlowTrend(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"taskStateName": taskStateName,
 		"items":         items,
+	})
+}
+
+func (h *BusinessOrderHandler) Sync(w http.ResponseWriter, r *http.Request) {
+	pageNo := parsePositiveInt(r.URL.Query().Get("pageNo"), 1)
+	pageSize := parsePositiveInt(r.URL.Query().Get("pageSize"), 50)
+
+	allIds, err := h.store.ListAllProIds(r.Context())
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	total := len(allIds)
+	offset := (pageNo - 1) * pageSize
+	if offset >= total {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"synced": 0,
+			"total":  total,
+		})
+		return
+	}
+
+	end := offset + pageSize
+	if end > total {
+		end = total
+	}
+	batch := allIds[offset:end]
+
+	synced := 0
+	for _, proID := range batch {
+		detail, err := h.fetcher.FetchDetail(r.Context(), proID)
+		if err != nil {
+			continue
+		}
+		if err := h.store.UpsertOrders(r.Context(), []model.BusinessOrderValue{*detail}); err != nil {
+			continue
+		}
+		if err := h.store.SaveOperLogs(r.Context(), proID, detail.OperLogVoList); err != nil {
+			continue
+		}
+		if err := h.store.SaveZenTaoProblem(r.Context(), proID, detail.ZenTaoProblem); err != nil {
+			continue
+		}
+		synced++
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"synced": synced,
+		"total":  total,
 	})
 }
 

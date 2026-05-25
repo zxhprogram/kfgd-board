@@ -27,6 +27,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", handler.Health)
 	mux.HandleFunc("POST /business-orders/import", businessOrderHandler.Import)
+	mux.HandleFunc("POST /business-orders/sync", businessOrderHandler.Sync)
 	mux.HandleFunc("GET /business-orders", businessOrderHandler.List)
 	mux.HandleFunc("GET /business-orders/{proId}/oper-logs", businessOrderHandler.OperLogs)
 	mux.HandleFunc("GET /business-orders/{proId}/zen-tao-problem", businessOrderHandler.ZenTaoProblem)

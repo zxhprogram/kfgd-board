@@ -72,6 +72,17 @@ class _OrdersPageState extends State<OrdersPage> {
               ),
               Button.outline(onPressed: store.refresh, child: const Text('刷新')),
               const Gap(8),
+              Button.outline(
+                onPressed: store.isSyncing.watch(context)
+                    ? null
+                    : store.syncAll,
+                child: store.isSyncing.watch(context)
+                    ? Text(
+                        '同步中 ${store.syncCompletedCount.watch(context)}/${store.syncTotalCount.watch(context)}',
+                      )
+                    : const Text('重新同步'),
+              ),
+              const Gap(8),
               Button.primary(
                 onPressed: () => context.go('/import'),
                 child: const Text('导入数据'),

@@ -71,6 +71,11 @@ class _BusinessOrderTableState extends State<BusinessOrderTable> {
         type: PlutoColumnType.text(),
         width: 80,
         readOnly: true,
+        renderer: (context) {
+          final value = context.cell.value?.toString() ?? '';
+          const stateLabels = {'1': '待处理', '7': '已关闭', '61': '已处理待确认'};
+          return Text(stateLabels[value] ?? value);
+        },
       ),
       PlutoColumn(
         title: '处理时长',

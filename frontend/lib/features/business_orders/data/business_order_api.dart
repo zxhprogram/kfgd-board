@@ -61,4 +61,19 @@ class BusinessOrderApi {
       throw ApiException.from(error);
     }
   }
+
+  Future<Map<String, dynamic>> syncBusinessOrders({
+    required int pageNo,
+    required int pageSize,
+  }) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/business-orders/sync',
+        queryParameters: {'pageNo': pageNo, 'pageSize': pageSize},
+      );
+      return response.data ?? const {};
+    } catch (error) {
+      throw ApiException.from(error);
+    }
+  }
 }
