@@ -70,14 +70,14 @@ type ZenTaoProblem struct {
 	Title           string `json:"title"`
 	Severity        int    `json:"severity"`
 	SeverityName    string `json:"severityName"`
-	Pri             string `json:"pri"`
+	Pri             int    `json:"pri"`
 	Steps           string `json:"steps"`
 	SolveBuild      string `json:"solveBuild"`
 	SolvePlan       string `json:"solvePlan"`
 	SolveUser       string `json:"solveUser"`
 	SolveDate       string `json:"solveDate"`
 	SolveSystemCode string `json:"solveSystemCode"`
-	DevelopPackage  string `json:"developPackage"`
+	DevelopPackage  int    `json:"developPackage"`
 	IsLock          bool   `json:"isLock"`
 	LiftLockType    int    `json:"liftLockType"`
 	CreateTime      string `json:"createTime"`

@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -25,6 +26,8 @@ type BusinessOrderStore interface {
 	GetFlowTrend(ctx context.Context, taskStateName string) ([]store.DailyCount, error)
 	ListAllProIds(ctx context.Context) ([]string, error)
 	SaveChildList(ctx context.Context, parentProID string, children []model.ChildItem) error
+	ListChildItems(ctx context.Context, parentProID string) ([]model.ChildItem, error)
+	UpdateExternalNo(ctx context.Context, proID string, externalNo string) error
 }
 
 type BusinessOrderHandler struct {
@@ -81,6 +84,10 @@ func (h *BusinessOrderHandler) Import(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err := h.store.SaveChildList(r.Context(), order.ProID, detail.ChildList); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if err := h.updateExternalNoFromChildren(r.Context(), order.ProID, detail.ChildList); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -177,6 +184,7 @@ func (h *BusinessOrderHandler) Sync(w http.ResponseWriter, r *http.Request) {
 
 	allIds, err := h.store.ListAllProIds(r.Context())
 	if err != nil {
+		fmt.Printf("[Sync] ListAllProIds failed: %v\n", err)
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -196,32 +204,68 @@ func (h *BusinessOrderHandler) Sync(w http.ResponseWriter, r *http.Request) {
 		end = total
 	}
 	batch := allIds[offset:end]
+	fmt.Printf("[Sync] batch pageNo=%d pageSize=%d total=%d batchStart=%d batchEnd=%d\n", pageNo, pageSize, total, offset, end)
 
 	synced := 0
-	for _, proID := range batch {
+	for i, proID := range batch {
 		detail, err := h.fetcher.FetchDetail(r.Context(), proID)
 		if err != nil {
+			fmt.Printf("[Sync] [%d/%d] FetchDetail failed proId=%s: %v\n", i+1, len(batch), proID, err)
 			continue
 		}
+		_ = h.updateExternalNoFromChildren(r.Context(), proID, detail.ChildList)
 		if err := h.store.UpsertOrders(r.Context(), []model.BusinessOrderValue{*detail}); err != nil {
+			fmt.Printf("[Sync] [%d/%d] UpsertOrders failed proId=%s: %v\n", i+1, len(batch), proID, err)
 			continue
 		}
 		if err := h.store.SaveOperLogs(r.Context(), proID, detail.OperLogVoList); err != nil {
+			fmt.Printf("[Sync] [%d/%d] SaveOperLogs failed proId=%s: %v\n", i+1, len(batch), proID, err)
 			continue
 		}
 		if err := h.store.SaveZenTaoProblem(r.Context(), proID, detail.ZenTaoProblem); err != nil {
+			fmt.Printf("[Sync] [%d/%d] SaveZenTaoProblem failed proId=%s: %v\n", i+1, len(batch), proID, err)
 			continue
 		}
 		if err := h.store.SaveChildList(r.Context(), proID, detail.ChildList); err != nil {
+			fmt.Printf("[Sync] [%d/%d] SaveChildList failed proId=%s: %v\n", i+1, len(batch), proID, err)
 			continue
 		}
 		synced++
 	}
 
+	fmt.Printf("[Sync] completed synced=%d total=%d\n", synced, total)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"synced": synced,
 		"total":  total,
 	})
+}
+
+func (h *BusinessOrderHandler) updateExternalNoFromChildren(ctx context.Context, parentProID string, childList []model.ChildItem) error {
+	if len(childList) == 0 {
+		return nil
+	}
+	fmt.Printf("[updateExternalNo] parentProId=%s childCount=%d\n", parentProID, len(childList))
+	var bugIds []string
+	for _, child := range childList {
+		if child.ProId == "" {
+			continue
+		}
+		detail, err := h.fetcher.FetchDetail(ctx, child.ProId)
+		if err != nil {
+			fmt.Printf("[updateExternalNo] FetchDetail failed parentProId=%s childProId=%s: %v\n", parentProID, child.ProId, err)
+			continue
+		}
+		if detail.ZenTaoProblem.BugId != "" {
+			bugIds = append(bugIds, detail.ZenTaoProblem.BugId)
+		}
+	}
+	if len(bugIds) == 0 {
+		fmt.Printf("[updateExternalNo] no bugIds found parentProId=%s\n", parentProID)
+		return nil
+	}
+	externalNo := strings.Join(bugIds, ",")
+	fmt.Printf("[updateExternalNo] updating parentProId=%s externalNo=%s\n", parentProID, externalNo)
+	return h.store.UpdateExternalNo(ctx, parentProID, externalNo)
 }
 
 func normalizeImportOrders(req importBusinessOrdersRequest) []importBusinessOrderItem {

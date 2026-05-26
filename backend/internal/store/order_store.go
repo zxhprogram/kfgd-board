@@ -182,10 +182,9 @@ func (s *OrderStore) UpsertOrders(ctx context.Context, values []model.BusinessOr
 
 	stmt, err := tx.PrepareContext(ctx, `
 INSERT INTO business_orders (
-	pro_id, external_no, pro_title, customer_name, customer_phone, pro_state, create_time, update_time, raw_json, saved_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+	pro_id,pro_title, customer_name, customer_phone, pro_state, create_time, update_time, raw_json, saved_at
+) VALUES (?,  ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 ON CONFLICT(pro_id) DO UPDATE SET
-	external_no = excluded.external_no,
 	pro_title = excluded.pro_title,
 	customer_name = excluded.customer_name,
 	customer_phone = excluded.customer_phone,
@@ -448,6 +447,35 @@ VALUES (?, ?, ?)
 		}
 	}
 	return nil
+}
+
+func (s *OrderStore) UpdateExternalNo(ctx context.Context, proID string, externalNo string) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE business_orders SET external_no = ? WHERE pro_id = ?`, externalNo, proID)
+	if err != nil {
+		fmt.Println("UpdateExternalNo", err)
+	}
+	return err
+}
+
+func (s *OrderStore) ListChildItems(ctx context.Context, parentProID string) ([]model.ChildItem, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT pro_id, parent_pro_id, remote_id FROM business_order_children WHERE parent_pro_id = ?`, parentProID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []model.ChildItem
+	for rows.Next() {
+		var item model.ChildItem
+		if err := rows.Scan(&item.ProId, &item.ParentProId, &item.Id); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 func (s *OrderStore) ListAllProIds(ctx context.Context) ([]string, error) {
