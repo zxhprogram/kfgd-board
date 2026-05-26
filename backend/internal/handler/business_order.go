@@ -23,7 +23,7 @@ type BusinessOrderStore interface {
 	SaveZenTaoProblem(ctx context.Context, proID string, problem model.ZenTaoProblem) error
 	ListOperLogs(ctx context.Context, proID string) ([]store.SavedOperLog, error)
 	GetZenTaoProblem(ctx context.Context, proID string) (*store.SavedZenTaoProblem, error)
-	GetFlowTrend(ctx context.Context, taskStateName string) ([]store.DailyCount, error)
+	GetFlowTrend(ctx context.Context, taskStateName string, startTimeFrom string, startTimeTo string) ([]store.DailyCount, error)
 	ListAllProIds(ctx context.Context) ([]string, error)
 	SaveChildList(ctx context.Context, parentProID string, children []model.ChildItem) error
 	ListChildItems(ctx context.Context, parentProID string) ([]model.ChildItem, error)
@@ -176,8 +176,10 @@ func (h *BusinessOrderHandler) FlowTrend(w http.ResponseWriter, r *http.Request)
 	if taskStateName == "" {
 		taskStateName = "待处理（属地开发组分析）"
 	}
+	startTimeFrom := r.URL.Query().Get("startTimeFrom")
+	startTimeTo := r.URL.Query().Get("startTimeTo")
 
-	items, err := h.store.GetFlowTrend(r.Context(), taskStateName)
+	items, err := h.store.GetFlowTrend(r.Context(), taskStateName, startTimeFrom, startTimeTo)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return

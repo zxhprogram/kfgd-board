@@ -20,6 +20,21 @@ class _OverviewPageState extends State<OverviewPage> {
     });
   }
 
+  String? _dateTimeToDateString(DateTime? dt) {
+    if (dt == null) return null;
+    return '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} 00:00:00';
+  }
+
+  void _applyFilter() {
+    overviewStore.loadFlowTrend();
+  }
+
+  void _clearFilter() {
+    overviewStore.startTimeFromFilter.value = null;
+    overviewStore.startTimeToFilter.value = null;
+    overviewStore.loadFlowTrend();
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = overviewStore;
@@ -38,6 +53,43 @@ class _OverviewPageState extends State<OverviewPage> {
           ),
           const Gap(8),
           const Text('工单流转趋势：按日期统计流转到"待处理（属地开发组分析）"节点的工单数量。'),
+          const Gap(16),
+          Row(
+            children: [
+              const Text('开始时间：'),
+              const Gap(8),
+              DatePicker(
+                value: store.startTimeFromFilter.watch(context) != null
+                    ? DateTime.tryParse(store.startTimeFromFilter.value!)
+                    : null,
+                onChanged: (dt) {
+                  store.startTimeFromFilter.value = _dateTimeToDateString(dt);
+                },
+                placeholder: const Text('从'),
+              ),
+              const Gap(4),
+              const Text('~'),
+              const Gap(4),
+              DatePicker(
+                value: store.startTimeToFilter.watch(context) != null
+                    ? DateTime.tryParse(store.startTimeToFilter.value!)
+                    : null,
+                onChanged: (dt) {
+                  final str = _dateTimeToDateString(dt);
+                  if (str != null) {
+                    store.startTimeToFilter.value = str.replaceFirst('00:00:00', '23:59:59');
+                  } else {
+                    store.startTimeToFilter.value = null;
+                  }
+                },
+                placeholder: const Text('到'),
+              ),
+              const Gap(8),
+              Button.primary(onPressed: _applyFilter, child: const Text('查询')),
+              const Gap(8),
+              Button.outline(onPressed: _clearFilter, child: const Text('清除')),
+            ],
+          ),
           const Gap(24),
           if (error != null)
             Card(

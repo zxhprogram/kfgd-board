@@ -614,17 +614,36 @@ func (s *OrderStore) ListAllProIds(ctx context.Context) ([]string, error) {
 	return ids, nil
 }
 
-func (s *OrderStore) GetFlowTrend(ctx context.Context, taskStateName string) ([]DailyCount, error) {
-	rows, err := s.db.QueryContext(ctx, `
-SELECT day, COUNT(*) AS count FROM (
-  SELECT DATE(MIN(json_extract(raw_json, '$.createTime'))) AS day
-  FROM business_order_oper_logs
-  WHERE json_extract(raw_json, '$.proTaskStateName') = ?
-  GROUP BY pro_id
+func (s *OrderStore) GetFlowTrend(ctx context.Context, taskStateName string, startTimeFrom string, startTimeTo string) ([]DailyCount, error) {
+	var conditions []string
+	var args []any
+	args = append(args, taskStateName)
+
+	if startTimeFrom != "" {
+		conditions = append(conditions, "bo.start_time >= ?")
+		args = append(args, startTimeFrom)
+	}
+	if startTimeTo != "" {
+		conditions = append(conditions, "bo.start_time <= ?")
+		args = append(args, startTimeTo)
+	}
+
+	joinFilter := ""
+	if len(conditions) > 0 {
+		joinFilter = " AND " + strings.Join(conditions, " AND ")
+	}
+
+	query := `SELECT day, COUNT(*) AS count FROM (
+  SELECT DATE(MIN(json_extract(ol.raw_json, '$.createTime'))) AS day
+  FROM business_order_oper_logs ol
+  JOIN business_orders bo ON bo.pro_id = ol.pro_id
+  WHERE json_extract(ol.raw_json, '$.proTaskStateName') = ?` + joinFilter + `
+  GROUP BY ol.pro_id
 ) sub
 GROUP BY day
-ORDER BY day
-`, taskStateName)
+ORDER BY day`
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

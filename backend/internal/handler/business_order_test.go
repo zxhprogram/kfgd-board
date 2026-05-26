@@ -66,7 +66,7 @@ func (s *fakeBusinessOrderStore) GetZenTaoProblem(ctx context.Context, proID str
 	return nil, nil
 }
 
-func (s *fakeBusinessOrderStore) GetFlowTrend(ctx context.Context, taskStateName string) ([]store.DailyCount, error) {
+func (s *fakeBusinessOrderStore) GetFlowTrend(ctx context.Context, taskStateName string, startTimeFrom string, startTimeTo string) ([]store.DailyCount, error) {
 	return nil, nil
 }
 

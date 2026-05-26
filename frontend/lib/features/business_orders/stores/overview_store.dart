@@ -12,12 +12,28 @@ class OverviewStore {
   final flowTrend = signal<List<DailyCount>>([]);
   final isLoading = signal(false);
   final errorMessage = signal<String?>(null);
+  final startTimeFromFilter = signal<String?>(null);
+  final startTimeToFilter = signal<String?>(null);
 
-  Future<void> loadFlowTrend({String? taskStateName}) async {
+  Future<void> loadFlowTrend({
+    String? taskStateName,
+    String? startTimeFrom,
+    String? startTimeTo,
+  }) async {
     isLoading.value = true;
     errorMessage.value = null;
     try {
-      flowTrend.value = await _api.getFlowTrend(taskStateName: taskStateName);
+      if (startTimeFrom != null) {
+        startTimeFromFilter.value = startTimeFrom;
+      }
+      if (startTimeTo != null) {
+        startTimeToFilter.value = startTimeTo;
+      }
+      flowTrend.value = await _api.getFlowTrend(
+        taskStateName: taskStateName,
+        startTimeFrom: startTimeFromFilter.value,
+        startTimeTo: startTimeToFilter.value,
+      );
     } catch (error) {
       errorMessage.value = ApiException.from(error).message;
     } finally {

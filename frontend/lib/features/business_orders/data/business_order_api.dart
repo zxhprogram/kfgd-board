@@ -62,11 +62,21 @@ class BusinessOrderApi {
     }
   }
 
-  Future<List<DailyCount>> getFlowTrend({String? taskStateName}) async {
+  Future<List<DailyCount>> getFlowTrend({
+    String? taskStateName,
+    String? startTimeFrom,
+    String? startTimeTo,
+  }) async {
     try {
       final params = <String, dynamic>{};
       if (taskStateName != null && taskStateName.isNotEmpty) {
         params['taskStateName'] = taskStateName;
+      }
+      if (startTimeFrom != null && startTimeFrom.isNotEmpty) {
+        params['startTimeFrom'] = startTimeFrom;
+      }
+      if (startTimeTo != null && startTimeTo.isNotEmpty) {
+        params['startTimeTo'] = startTimeTo;
       }
       final response = await _dio.get<Map<String, dynamic>>(
         '/business-orders/flow-trend',
