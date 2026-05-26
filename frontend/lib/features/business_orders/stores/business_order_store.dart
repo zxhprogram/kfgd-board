@@ -17,6 +17,11 @@ class BusinessOrderStore {
   final isLoading = signal(false);
   final errorMessage = signal<String?>(null);
   final proIdFilter = signal('');
+  final proStateFilter = signal<int?>(null);
+  final startTimeFromFilter = signal<String?>(null);
+  final startTimeToFilter = signal<String?>(null);
+  final resolveTimeFromFilter = signal<String?>(null);
+  final resolveTimeToFilter = signal<String?>(null);
   final isSyncing = signal(false);
   final syncCompletedCount = signal(0);
   final syncTotalCount = signal(0);
@@ -33,7 +38,16 @@ class BusinessOrderStore {
   late final hasPreviousPage = computed(() => pageNo.value > 1);
   late final hasNextPage = computed(() => pageNo.value < totalPages.value);
 
-  Future<void> loadPage({int? pageNo, int? pageSize, String? proId}) async {
+  Future<void> loadPage({
+    int? pageNo,
+    int? pageSize,
+    String? proId,
+    int? proState,
+    String? startTimeFrom,
+    String? startTimeTo,
+    String? resolveTimeFrom,
+    String? resolveTimeTo,
+  }) async {
     isLoading.value = true;
     errorMessage.value = null;
     try {
@@ -41,10 +55,30 @@ class BusinessOrderStore {
       if (proId != null) {
         proIdFilter.value = proId;
       }
+      if (proState != null) {
+        proStateFilter.value = proState;
+      }
+      if (startTimeFrom != null) {
+        startTimeFromFilter.value = startTimeFrom;
+      }
+      if (startTimeTo != null) {
+        startTimeToFilter.value = startTimeTo;
+      }
+      if (resolveTimeFrom != null) {
+        resolveTimeFromFilter.value = resolveTimeFrom;
+      }
+      if (resolveTimeTo != null) {
+        resolveTimeToFilter.value = resolveTimeTo;
+      }
       final page = await _api.listBusinessOrders(
         pageNo: pageNo ?? this.pageNo.value,
         pageSize: pageSize ?? this.pageSize.value,
         proId: filter.isNotEmpty ? filter : null,
+        proState: proStateFilter.value,
+        startTimeFrom: startTimeFromFilter.value,
+        startTimeTo: startTimeToFilter.value,
+        resolveTimeFrom: resolveTimeFromFilter.value,
+        resolveTimeTo: resolveTimeToFilter.value,
       );
       orders.value = page.items;
       this.pageNo.value = page.pageNo;

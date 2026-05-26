@@ -43,7 +43,7 @@ func (s *fakeBusinessOrderStore) UpsertOrders(ctx context.Context, values []mode
 	return nil
 }
 
-func (s *fakeBusinessOrderStore) ListOrders(ctx context.Context, pageNo int, pageSize int, proIdFilter string) ([]store.SavedBusinessOrder, int, error) {
+func (s *fakeBusinessOrderStore) ListOrders(ctx context.Context, pageNo int, pageSize int, proIdFilter string, proState *int, startTimeFrom string, startTimeTo string, resolveTimeFrom string, resolveTimeTo string) ([]store.SavedBusinessOrder, int, error) {
 	items := []store.SavedBusinessOrder{{ProId: "p1", ProTitle: "title1"}}
 	return items, 1, nil
 }

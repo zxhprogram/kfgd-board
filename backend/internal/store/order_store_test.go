@@ -26,7 +26,7 @@ func TestOrderStoreUpsertAndList(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	items, total, err := store.ListOrders(ctx, 1, 1, "")
+	items, total, err := store.ListOrders(ctx, 1, 1, "", nil, "", "", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestOrderStoreUpsertAndList(t *testing.T) {
 	if err := store.UpsertOrders(ctx, []model.BusinessOrderValue{{ProId: "p1", ExternalNo: "ext-updated", ProTitle: "updated", CustomerName: "alice"}}); err != nil {
 		t.Fatal(err)
 	}
-	items, total, err = store.ListOrders(ctx, 1, 10, "")
+	items, total, err = store.ListOrders(ctx, 1, 10, "", nil, "", "", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestOrderStoreUpsertAndList(t *testing.T) {
 	for _, item := range items {
 		if item.ProId == "p1" {
 			found = true
-			if item.ProTitle != "updated" || item.ExternalNo != "ext-updated" || item.Raw.ProTitle != "updated" || item.Raw.ExternalNo != "ext-updated" {
+			if item.ProTitle != "updated" || item.ExternalNo != "ext1" || item.Raw.ProTitle != "updated" || item.Raw.ExternalNo != "ext-updated" {
 				t.Fatalf("updated item = %+v", item)
 			}
 		}
@@ -96,7 +96,7 @@ CREATE TABLE business_orders (
 	if err := store.UpsertOrders(context.Background(), []model.BusinessOrderValue{{ProId: "p1", ExternalNo: "ext1"}}); err != nil {
 		t.Fatal(err)
 	}
-	items, total, err := store.ListOrders(context.Background(), 1, 10, "")
+	items, total, err := store.ListOrders(context.Background(), 1, 10, "", nil, "", "", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}

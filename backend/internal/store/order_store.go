@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"backend/internal/model"
@@ -30,6 +31,8 @@ type SavedBusinessOrder struct {
 	ProState        int                      `json:"proState"`
 	CreateTime      string                   `json:"createTime"`
 	UpdateTime      string                   `json:"updateTime"`
+	StartTime       string                   `json:"startTime"`
+	ResolveTime     string                   `json:"resolveTime"`
 	Raw             model.BusinessOrderValue `json:"raw"`
 	SavedAt         string                   `json:"savedAt"`
 	ProcessDuration string                   `json:"processDuration"`
@@ -135,7 +138,10 @@ CREATE INDEX IF NOT EXISTS idx_children_parent_pro_id ON business_order_children
 	if err != nil {
 		return err
 	}
-	return s.ensureBusinessOrdersColumns(ctx)
+	if err := s.ensureBusinessOrdersColumns(ctx); err != nil {
+		return err
+	}
+	return s.backfillProcessTimes(ctx)
 }
 
 func (s *OrderStore) ensureBusinessOrdersColumns(ctx context.Context) error {
@@ -146,6 +152,8 @@ func (s *OrderStore) ensureBusinessOrdersColumns(ctx context.Context) error {
 	defer rows.Close()
 
 	hasExternalNo := false
+	hasStartTime := false
+	hasResolveTime := false
 	for rows.Next() {
 		var cid int
 		var name string
@@ -156,18 +164,35 @@ func (s *OrderStore) ensureBusinessOrdersColumns(ctx context.Context) error {
 		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &pk); err != nil {
 			return err
 		}
-		if name == "external_no" {
+		switch name {
+		case "external_no":
 			hasExternalNo = true
+		case "start_time":
+			hasStartTime = true
+		case "resolve_time":
+			hasResolveTime = true
 		}
 	}
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	if hasExternalNo {
-		return nil
+
+	if !hasExternalNo {
+		if _, err := s.db.ExecContext(ctx, `ALTER TABLE business_orders ADD COLUMN external_no TEXT DEFAULT ''`); err != nil {
+			return err
+		}
 	}
-	_, err = s.db.ExecContext(ctx, `ALTER TABLE business_orders ADD COLUMN external_no TEXT DEFAULT ''`)
-	return err
+	if !hasStartTime {
+		if _, err := s.db.ExecContext(ctx, `ALTER TABLE business_orders ADD COLUMN start_time TEXT DEFAULT ''`); err != nil {
+			return err
+		}
+	}
+	if !hasResolveTime {
+		if _, err := s.db.ExecContext(ctx, `ALTER TABLE business_orders ADD COLUMN resolve_time TEXT DEFAULT ''`); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *OrderStore) UpsertOrders(ctx context.Context, values []model.BusinessOrderValue) error {
@@ -182,8 +207,8 @@ func (s *OrderStore) UpsertOrders(ctx context.Context, values []model.BusinessOr
 
 	stmt, err := tx.PrepareContext(ctx, `
 INSERT INTO business_orders (
-	pro_id, external_no, pro_title, customer_name, customer_phone, pro_state, create_time, update_time, raw_json, saved_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+	pro_id, external_no, pro_title, customer_name, customer_phone, pro_state, create_time, update_time, start_time, resolve_time, raw_json, saved_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 ON CONFLICT(pro_id) DO UPDATE SET
 	external_no = external_no,
 	pro_title = excluded.pro_title,
@@ -192,6 +217,8 @@ ON CONFLICT(pro_id) DO UPDATE SET
 	pro_state = excluded.pro_state,
 	create_time = excluded.create_time,
 	update_time = excluded.update_time,
+	start_time = excluded.start_time,
+	resolve_time = excluded.resolve_time,
 	raw_json = excluded.raw_json,
 	saved_at = CURRENT_TIMESTAMP
 `)
@@ -208,7 +235,8 @@ ON CONFLICT(pro_id) DO UPDATE SET
 		if err != nil {
 			return err
 		}
-		if _, err := stmt.ExecContext(ctx, value.ProId, value.ExternalNo, value.ProTitle, value.CustomerName, value.CustomerPhone, value.ProState, value.CreateTime, value.UpdateTime, string(raw)); err != nil {
+		startTime, resolveTime, _ := s.computeProcessTimes(ctx, value.ProId)
+		if _, err := stmt.ExecContext(ctx, value.ProId, value.ExternalNo, value.ProTitle, value.CustomerName, value.CustomerPhone, value.ProState, value.CreateTime, value.UpdateTime, startTime, resolveTime, string(raw)); err != nil {
 			return err
 		}
 	}
@@ -216,7 +244,7 @@ ON CONFLICT(pro_id) DO UPDATE SET
 	return tx.Commit()
 }
 
-func (s *OrderStore) ListOrders(ctx context.Context, pageNo int, pageSize int, proIdFilter string) ([]SavedBusinessOrder, int, error) {
+func (s *OrderStore) ListOrders(ctx context.Context, pageNo int, pageSize int, proIdFilter string, proState *int, startTimeFrom string, startTimeTo string, resolveTimeFrom string, resolveTimeTo string) ([]SavedBusinessOrder, int, error) {
 	if pageNo < 1 {
 		pageNo = 1
 	}
@@ -225,33 +253,50 @@ func (s *OrderStore) ListOrders(ctx context.Context, pageNo int, pageSize int, p
 	}
 	offset := (pageNo - 1) * pageSize
 
-	var total int
-	var rows *sql.Rows
-	var err error
+	var conditions []string
+	var args []any
 
 	if proIdFilter != "" {
-		pattern := "%" + proIdFilter + "%"
-		if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM business_orders WHERE pro_id LIKE ?`, pattern).Scan(&total); err != nil {
-			return nil, 0, err
-		}
-		rows, err = s.db.QueryContext(ctx, `
-SELECT pro_id, external_no, pro_title, customer_name, customer_phone, pro_state, create_time, update_time, raw_json, saved_at
-FROM business_orders
-WHERE pro_id LIKE ?
-ORDER BY saved_at DESC, pro_id DESC
-LIMIT ? OFFSET ?
-`, pattern, pageSize, offset)
-	} else {
-		if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM business_orders`).Scan(&total); err != nil {
-			return nil, 0, err
-		}
-		rows, err = s.db.QueryContext(ctx, `
-SELECT pro_id, external_no, pro_title, customer_name, customer_phone, pro_state, create_time, update_time, raw_json, saved_at
-FROM business_orders
-ORDER BY saved_at DESC, pro_id DESC
-LIMIT ? OFFSET ?
-`, pageSize, offset)
+		conditions = append(conditions, "pro_id LIKE ?")
+		args = append(args, "%"+proIdFilter+"%")
 	}
+	if proState != nil {
+		conditions = append(conditions, "pro_state = ?")
+		args = append(args, *proState)
+	}
+	if startTimeFrom != "" {
+		conditions = append(conditions, "start_time >= ?")
+		args = append(args, startTimeFrom)
+	}
+	if startTimeTo != "" {
+		conditions = append(conditions, "start_time <= ?")
+		args = append(args, startTimeTo)
+	}
+	if resolveTimeFrom != "" {
+		conditions = append(conditions, "resolve_time >= ?")
+		args = append(args, resolveTimeFrom)
+	}
+	if resolveTimeTo != "" {
+		conditions = append(conditions, "resolve_time <= ?")
+		args = append(args, resolveTimeTo)
+	}
+
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = "WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	var total int
+	countSQL := "SELECT COUNT(*) FROM business_orders " + whereClause
+	if err := s.db.QueryRowContext(ctx, countSQL, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	querySQL := `SELECT pro_id, external_no, pro_title, customer_name, customer_phone, pro_state, create_time, update_time, start_time, resolve_time, raw_json, saved_at
+FROM business_orders ` + whereClause + ` ORDER BY saved_at DESC, pro_id DESC LIMIT ? OFFSET ?`
+
+	queryArgs := append(args, pageSize, offset)
+	rows, err := s.db.QueryContext(ctx, querySQL, queryArgs...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -261,7 +306,7 @@ LIMIT ? OFFSET ?
 	for rows.Next() {
 		var item SavedBusinessOrder
 		var raw string
-		if err := rows.Scan(&item.ProId, &item.ExternalNo, &item.ProTitle, &item.CustomerName, &item.CustomerPhone, &item.ProState, &item.CreateTime, &item.UpdateTime, &raw, &item.SavedAt); err != nil {
+		if err := rows.Scan(&item.ProId, &item.ExternalNo, &item.ProTitle, &item.CustomerName, &item.CustomerPhone, &item.ProState, &item.CreateTime, &item.UpdateTime, &item.StartTime, &item.ResolveTime, &raw, &item.SavedAt); err != nil {
 			return nil, 0, err
 		}
 		if err := json.Unmarshal([]byte(raw), &item.Raw); err != nil {
@@ -274,15 +319,52 @@ LIMIT ? OFFSET ?
 	}
 
 	for i := range items {
-		startTime, resolveTime, duration := s.computeProcessTimes(ctx, items[i].ProId)
-		if startTime != "" {
-			items[i].CreateTime = startTime
+		if items[i].StartTime != "" {
+			items[i].CreateTime = items[i].StartTime
 		}
-		items[i].UpdateTime = resolveTime
-		items[i].ProcessDuration = duration
+		items[i].UpdateTime = items[i].ResolveTime
+		if items[i].StartTime != "" || items[i].ResolveTime != "" {
+			items[i].ProcessDuration = s.computeDuration(items[i].StartTime, items[i].ResolveTime)
+		} else {
+			startTime, resolveTime, duration := s.computeProcessTimes(ctx, items[i].ProId)
+			if startTime != "" {
+				items[i].CreateTime = startTime
+			}
+			items[i].UpdateTime = resolveTime
+			items[i].ProcessDuration = duration
+		}
 	}
 
 	return items, total, nil
+}
+
+func (s *OrderStore) computeDuration(startTime, resolveTime string) string {
+	if startTime == "" {
+		return ""
+	}
+	st, err := time.Parse("2006-01-02 15:04:05", startTime)
+	if err != nil {
+		return ""
+	}
+	var et time.Time
+	if resolveTime != "" {
+		et, err = time.Parse("2006-01-02 15:04:05", resolveTime)
+		if err != nil {
+			et = time.Now()
+		}
+	} else {
+		et = time.Now()
+	}
+	d := et.Sub(st)
+	days := int(d.Hours()) / 24
+	hours := int(d.Hours()) % 24
+	minutes := int(d.Minutes()) % 60
+	if days > 0 {
+		return fmt.Sprintf("%dd %dh %dm", days, hours, minutes)
+	} else if hours > 0 {
+		return fmt.Sprintf("%dh %dm", hours, minutes)
+	}
+	return fmt.Sprintf("%dm", minutes)
 }
 
 func (s *OrderStore) computeProcessTimes(ctx context.Context, proID string) (startTime, resolveTime, duration string) {
@@ -340,6 +422,38 @@ LIMIT 1
 		duration = fmt.Sprintf("%dm", minutes)
 	}
 	return startTime, resolveTime, duration
+}
+
+func (s *OrderStore) backfillProcessTimes(ctx context.Context) error {
+	rows, err := s.db.QueryContext(ctx, `SELECT pro_id FROM business_orders WHERE start_time = '' OR resolve_time = '' OR start_time IS NULL OR resolve_time IS NULL`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var proIDs []string
+	for rows.Next() {
+		var proID string
+		if err := rows.Scan(&proID); err != nil {
+			return err
+		}
+		proIDs = append(proIDs, proID)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, proID := range proIDs {
+		startTime, resolveTime, _ := s.computeProcessTimes(ctx, proID)
+		if startTime == "" && resolveTime == "" {
+			continue
+		}
+		_, err := s.db.ExecContext(ctx, `UPDATE business_orders SET start_time = ?, resolve_time = ? WHERE pro_id = ?`, startTime, resolveTime, proID)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *OrderStore) SaveOperLogs(ctx context.Context, proID string, logs []model.OperLogVo) error {

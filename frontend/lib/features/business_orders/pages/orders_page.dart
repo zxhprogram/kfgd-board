@@ -35,6 +35,21 @@ class _OrdersPageState extends State<OrdersPage> {
     businessOrderStore.loadPage(pageNo: 1, proId: _proIdController.text);
   }
 
+  void _clearFilter() {
+    _proIdController.clear();
+    businessOrderStore.proStateFilter.value = null;
+    businessOrderStore.startTimeFromFilter.value = null;
+    businessOrderStore.startTimeToFilter.value = null;
+    businessOrderStore.resolveTimeFromFilter.value = null;
+    businessOrderStore.resolveTimeToFilter.value = null;
+    businessOrderStore.loadPage(pageNo: 1, proId: '');
+  }
+
+  String? _dateTimeToDateString(DateTime? dt) {
+    if (dt == null) return null;
+    return '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} 00:00:00';
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = businessOrderStore;
@@ -92,26 +107,113 @@ class _OrdersPageState extends State<OrdersPage> {
           const Gap(16),
           Row(
             children: [
-              const Text('工单编号筛选：'),
+              const Text('工单编号：'),
               const Gap(8),
               SizedBox(
-                width: 280,
+                width: 200,
                 child: TextField(
                   controller: _proIdController,
                   placeholder: const Text('输入 proId 关键字'),
                   onSubmitted: (_) => _applyFilter(),
                 ),
               ),
+              const Gap(16),
+              const Text('状态：'),
               const Gap(8),
+              SizedBox(
+                width: 160,
+                child: Select<int?>(
+                  value: store.proStateFilter.watch(context),
+                  onChanged: (v) {
+                    store.proStateFilter.value = v;
+                  },
+                  placeholder: const Text('全部'),
+                  itemBuilder: (context, value) {
+                    const labels = {
+                      1: '待处理',
+                      61: '已处理待确认',
+                      7: '已关闭',
+                    };
+                    return Text(labels[value] ?? value.toString());
+                  },
+                  popup: (context) {
+                    return SelectGroup(
+                      children: [
+                        SelectItem(value: null, builder: (_) => const Text('全部')),
+                        SelectItem(value: 1, builder: (_) => const Text('待处理')),
+                        SelectItem(value: 61, builder: (_) => const Text('已处理待确认')),
+                        SelectItem(value: 7, builder: (_) => const Text('已关闭')),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              const Gap(16),
+              const Text('开始时间：'),
+              const Gap(8),
+              DatePicker(
+                value: store.startTimeFromFilter.watch(context) != null
+                    ? DateTime.tryParse(store.startTimeFromFilter.value!)
+                    : null,
+                onChanged: (dt) {
+                  store.startTimeFromFilter.value = _dateTimeToDateString(dt);
+                },
+                placeholder: const Text('从'),
+              ),
+              const Gap(4),
+              const Text('~'),
+              const Gap(4),
+              DatePicker(
+                value: store.startTimeToFilter.watch(context) != null
+                    ? DateTime.tryParse(store.startTimeToFilter.value!)
+                    : null,
+                onChanged: (dt) {
+                  final str = _dateTimeToDateString(dt);
+                  if (str != null) {
+                    store.startTimeToFilter.value = str.replaceFirst('00:00:00', '23:59:59');
+                  } else {
+                    store.startTimeToFilter.value = null;
+                  }
+                },
+                placeholder: const Text('到'),
+              ),
+              const Gap(16),
+              const Text('解决时间：'),
+              const Gap(8),
+              DatePicker(
+                value: store.resolveTimeFromFilter.watch(context) != null
+                    ? DateTime.tryParse(store.resolveTimeFromFilter.value!)
+                    : null,
+                onChanged: (dt) {
+                  store.resolveTimeFromFilter.value = _dateTimeToDateString(dt);
+                },
+                placeholder: const Text('从'),
+              ),
+              const Gap(4),
+              const Text('~'),
+              const Gap(4),
+              DatePicker(
+                value: store.resolveTimeToFilter.watch(context) != null
+                    ? DateTime.tryParse(store.resolveTimeToFilter.value!)
+                    : null,
+                onChanged: (dt) {
+                  final str = _dateTimeToDateString(dt);
+                  if (str != null) {
+                    store.resolveTimeToFilter.value = str.replaceFirst('00:00:00', '23:59:59');
+                  } else {
+                    store.resolveTimeToFilter.value = null;
+                  }
+                },
+                placeholder: const Text('到'),
+              ),
+            ],
+          ),
+          const Gap(8),
+          Row(
+            children: [
               Button.primary(onPressed: _applyFilter, child: const Text('查询')),
               const Gap(8),
-              Button.outline(
-                onPressed: () {
-                  _proIdController.clear();
-                  store.loadPage(pageNo: 1, proId: '');
-                },
-                child: const Text('清除'),
-              ),
+              Button.outline(onPressed: _clearFilter, child: const Text('清除')),
             ],
           ),
           const Gap(16),

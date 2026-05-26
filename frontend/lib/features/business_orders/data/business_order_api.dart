@@ -26,11 +26,31 @@ class BusinessOrderApi {
     required int pageNo,
     required int pageSize,
     String? proId,
+    int? proState,
+    String? startTimeFrom,
+    String? startTimeTo,
+    String? resolveTimeFrom,
+    String? resolveTimeTo,
   }) async {
     try {
       final params = <String, dynamic>{'pageNo': pageNo, 'pageSize': pageSize};
       if (proId != null && proId.isNotEmpty) {
         params['proId'] = proId;
+      }
+      if (proState != null) {
+        params['proState'] = proState;
+      }
+      if (startTimeFrom != null && startTimeFrom.isNotEmpty) {
+        params['startTimeFrom'] = startTimeFrom;
+      }
+      if (startTimeTo != null && startTimeTo.isNotEmpty) {
+        params['startTimeTo'] = startTimeTo;
+      }
+      if (resolveTimeFrom != null && resolveTimeFrom.isNotEmpty) {
+        params['resolveTimeFrom'] = resolveTimeFrom;
+      }
+      if (resolveTimeTo != null && resolveTimeTo.isNotEmpty) {
+        params['resolveTimeTo'] = resolveTimeTo;
       }
       final response = await _dio.get<Map<String, dynamic>>(
         '/business-orders',

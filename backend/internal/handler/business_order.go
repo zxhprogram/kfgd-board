@@ -18,7 +18,7 @@ type BusinessOrderDetailFetcher interface {
 
 type BusinessOrderStore interface {
 	UpsertOrders(ctx context.Context, values []model.BusinessOrderValue) error
-	ListOrders(ctx context.Context, pageNo int, pageSize int, proIdFilter string) ([]store.SavedBusinessOrder, int, error)
+	ListOrders(ctx context.Context, pageNo int, pageSize int, proIdFilter string, proState *int, startTimeFrom string, startTimeTo string, resolveTimeFrom string, resolveTimeTo string) ([]store.SavedBusinessOrder, int, error)
 	SaveOperLogs(ctx context.Context, proID string, logs []model.OperLogVo) error
 	SaveZenTaoProblem(ctx context.Context, proID string, problem model.ZenTaoProblem) error
 	ListOperLogs(ctx context.Context, proID string) ([]store.SavedOperLog, error)
@@ -108,7 +108,18 @@ func (h *BusinessOrderHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	proIdFilter := r.URL.Query().Get("proId")
 
-	items, total, err := h.store.ListOrders(r.Context(), pageNo, pageSize, proIdFilter)
+	var proState *int
+	if v := r.URL.Query().Get("proState"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil {
+			proState = &parsed
+		}
+	}
+	startTimeFrom := r.URL.Query().Get("startTimeFrom")
+	startTimeTo := r.URL.Query().Get("startTimeTo")
+	resolveTimeFrom := r.URL.Query().Get("resolveTimeFrom")
+	resolveTimeTo := r.URL.Query().Get("resolveTimeTo")
+
+	items, total, err := h.store.ListOrders(r.Context(), pageNo, pageSize, proIdFilter, proState, startTimeFrom, startTimeTo, resolveTimeFrom, resolveTimeTo)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
