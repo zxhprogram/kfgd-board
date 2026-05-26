@@ -182,9 +182,10 @@ func (s *OrderStore) UpsertOrders(ctx context.Context, values []model.BusinessOr
 
 	stmt, err := tx.PrepareContext(ctx, `
 INSERT INTO business_orders (
-	pro_id,pro_title, customer_name, customer_phone, pro_state, create_time, update_time, raw_json, saved_at
-) VALUES (?,  ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+	pro_id, external_no, pro_title, customer_name, customer_phone, pro_state, create_time, update_time, raw_json, saved_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 ON CONFLICT(pro_id) DO UPDATE SET
+	external_no = external_no,
 	pro_title = excluded.pro_title,
 	customer_name = excluded.customer_name,
 	customer_phone = excluded.customer_phone,
