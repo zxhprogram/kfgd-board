@@ -114,3 +114,17 @@ class DailyCount {
     );
   }
 }
+
+class DurationBucket {
+  const DurationBucket({required this.label, required this.count});
+
+  final String label;
+  final int count;
+
+  factory DurationBucket.fromJson(Map<String, dynamic> json) {
+    return DurationBucket(
+      label: json['label']?.toString() ?? '',
+      count: (json['count'] as num?)?.toInt() ?? 0,
+    );
+  }
+}

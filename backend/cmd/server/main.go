@@ -32,6 +32,7 @@ func main() {
 	mux.HandleFunc("GET /business-orders/{proId}/oper-logs", businessOrderHandler.OperLogs)
 	mux.HandleFunc("GET /business-orders/{proId}/zen-tao-problem", businessOrderHandler.ZenTaoProblem)
 	mux.HandleFunc("GET /business-orders/flow-trend", businessOrderHandler.FlowTrend)
+	mux.HandleFunc("GET /business-orders/resolve-duration-distribution", businessOrderHandler.ResolveDurationDistribution)
 
 	log.Println("server listening on :8080")
 	if err := http.ListenAndServe(":8080", withCORS(mux)); err != nil {

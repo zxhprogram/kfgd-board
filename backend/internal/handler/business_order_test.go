@@ -70,6 +70,10 @@ func (s *fakeBusinessOrderStore) GetFlowTrend(ctx context.Context, taskStateName
 	return nil, nil
 }
 
+func (s *fakeBusinessOrderStore) GetResolveDurationDistribution(ctx context.Context, startTimeFrom string, startTimeTo string) ([]store.DurationBucket, error) {
+	return nil, nil
+}
+
 func (s *fakeBusinessOrderStore) ListAllProIds(ctx context.Context) ([]string, error) {
 	return nil, nil
 }

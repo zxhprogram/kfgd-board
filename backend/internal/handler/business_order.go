@@ -24,6 +24,7 @@ type BusinessOrderStore interface {
 	ListOperLogs(ctx context.Context, proID string) ([]store.SavedOperLog, error)
 	GetZenTaoProblem(ctx context.Context, proID string) (*store.SavedZenTaoProblem, error)
 	GetFlowTrend(ctx context.Context, taskStateName string, startTimeFrom string, startTimeTo string) ([]store.DailyCount, error)
+	GetResolveDurationDistribution(ctx context.Context, startTimeFrom string, startTimeTo string) ([]store.DurationBucket, error)
 	ListAllProIds(ctx context.Context) ([]string, error)
 	SaveChildList(ctx context.Context, parentProID string, children []model.ChildItem) error
 	ListChildItems(ctx context.Context, parentProID string) ([]model.ChildItem, error)
@@ -188,6 +189,21 @@ func (h *BusinessOrderHandler) FlowTrend(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"taskStateName": taskStateName,
 		"items":         items,
+	})
+}
+
+func (h *BusinessOrderHandler) ResolveDurationDistribution(w http.ResponseWriter, r *http.Request) {
+	startTimeFrom := r.URL.Query().Get("startTimeFrom")
+	startTimeTo := r.URL.Query().Get("startTimeTo")
+
+	items, err := h.store.GetResolveDurationDistribution(r.Context(), startTimeFrom, startTimeTo)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"items": items,
 	})
 }
 

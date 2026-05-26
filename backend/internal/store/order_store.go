@@ -64,6 +64,11 @@ type DailyCount struct {
 	Count int    `json:"count"`
 }
 
+type DurationBucket struct {
+	Label string `json:"label"`
+	Count int    `json:"count"`
+}
+
 func OpenOrderStore(dbPath string) (*OrderStore, error) {
 	if dbPath == "" {
 		dbPath = os.Getenv("SQLITE_PATH")
@@ -653,6 +658,54 @@ ORDER BY day`
 	for rows.Next() {
 		var item DailyCount
 		if err := rows.Scan(&item.Date, &item.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (s *OrderStore) GetResolveDurationDistribution(ctx context.Context, startTimeFrom string, startTimeTo string) ([]DurationBucket, error) {
+	var conditions []string
+	var args []any
+
+	conditions = append(conditions, "start_time != ''")
+	conditions = append(conditions, "resolve_time != ''")
+
+	if startTimeFrom != "" {
+		conditions = append(conditions, "start_time >= ?")
+		args = append(args, startTimeFrom)
+	}
+	if startTimeTo != "" {
+		conditions = append(conditions, "start_time <= ?")
+		args = append(args, startTimeTo)
+	}
+
+	whereClause := "WHERE " + strings.Join(conditions, " AND ")
+
+	query := `SELECT
+  CASE
+    WHEN (julianday(resolve_time) - julianday(start_time)) * 24 < 24 THEN '<24h'
+    WHEN (julianday(resolve_time) - julianday(start_time)) * 24 < 48 THEN '24-48h'
+    WHEN (julianday(resolve_time) - julianday(start_time)) * 24 < 120 THEN '48-120h'
+    ELSE '>120h'
+  END AS bucket,
+  COUNT(*) AS count
+FROM business_orders ` + whereClause + ` GROUP BY bucket ORDER BY bucket`
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]DurationBucket, 0)
+	for rows.Next() {
+		var item DurationBucket
+		if err := rows.Scan(&item.Label, &item.Count); err != nil {
 			return nil, err
 		}
 		items = append(items, item)

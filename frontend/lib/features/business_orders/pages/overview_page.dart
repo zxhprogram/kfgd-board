@@ -3,6 +3,7 @@ import 'package:signals_flutter/signals_flutter.dart';
 
 import '../../../app/dependencies.dart';
 import '../widgets/flow_trend_chart.dart';
+import '../widgets/resolve_duration_chart.dart';
 
 class OverviewPage extends StatefulWidget {
   const OverviewPage({super.key});
@@ -17,6 +18,7 @@ class _OverviewPageState extends State<OverviewPage> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       overviewStore.loadFlowTrend();
+      overviewStore.loadResolveDuration();
     });
   }
 
@@ -27,18 +29,21 @@ class _OverviewPageState extends State<OverviewPage> {
 
   void _applyFilter() {
     overviewStore.loadFlowTrend();
+    overviewStore.loadResolveDuration();
   }
 
   void _clearFilter() {
     overviewStore.startTimeFromFilter.value = null;
     overviewStore.startTimeToFilter.value = null;
     overviewStore.loadFlowTrend();
+    overviewStore.loadResolveDuration();
   }
 
   @override
   Widget build(BuildContext context) {
     final store = overviewStore;
-    final data = store.flowTrend.watch(context);
+    final flowData = store.flowTrend.watch(context);
+    final durationData = store.resolveDurationData.watch(context);
     final loading = store.isLoading.watch(context);
     final error = store.errorMessage.watch(context);
 
@@ -105,18 +110,40 @@ class _OverviewPageState extends State<OverviewPage> {
             ),
           if (loading)
             const Padding(padding: EdgeInsets.all(16), child: Text('加载中...')),
-          if (!loading && data.isNotEmpty)
+          if (!loading && flowData.isNotEmpty)
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: SizedBox(height: 400, child: FlowTrendChart(data: data)),
+                child: SizedBox(height: 400, child: FlowTrendChart(data: flowData)),
               ),
             ),
-          if (!loading && data.isEmpty && error == null)
+          if (!loading && flowData.isEmpty && error == null)
             const Card(
               child: Padding(
                 padding: EdgeInsets.all(16),
                 child: Text('暂无趋势数据'),
+              ),
+            ),
+          const Gap(24),
+          const Text(
+            '解决时长分布',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+          ),
+          const Gap(8),
+          const Text('按解决时长分段统计工单数量，无解决时间的工单不计入。'),
+          const Gap(16),
+          if (!loading && durationData.isNotEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: SizedBox(height: 300, child: ResolveDurationChart(data: durationData)),
+              ),
+            ),
+          if (!loading && durationData.isEmpty && error == null)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('暂无解决时长数据'),
               ),
             ),
         ],

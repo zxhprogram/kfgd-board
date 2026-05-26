@@ -10,6 +10,7 @@ class OverviewStore {
   final BusinessOrderApi _api;
 
   final flowTrend = signal<List<DailyCount>>([]);
+  final resolveDurationData = signal<List<DurationBucket>>([]);
   final isLoading = signal(false);
   final errorMessage = signal<String?>(null);
   final startTimeFromFilter = signal<String?>(null);
@@ -38,6 +39,17 @@ class OverviewStore {
       errorMessage.value = ApiException.from(error).message;
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  Future<void> loadResolveDuration() async {
+    try {
+      resolveDurationData.value = await _api.getResolveDurationDistribution(
+        startTimeFrom: startTimeFromFilter.value,
+        startTimeTo: startTimeToFilter.value,
+      );
+    } catch (error) {
+      errorMessage.value = ApiException.from(error).message;
     }
   }
 }
