@@ -632,11 +632,20 @@ FROM business_orders WHERE pro_id = ?`, proID).Scan(&item.ProId, &item.ExternalN
 
 func (s *OrderStore) ListChildOrders(ctx context.Context, parentProID string) ([]SavedBusinessOrder, error) {
 	rows, err := s.db.QueryContext(ctx, `
-SELECT o.pro_id, o.external_no, o.pro_title, o.customer_name, o.customer_phone, o.pro_state, o.create_time, o.update_time, o.start_time, o.resolve_time, o.raw_json, o.saved_at
-FROM business_orders o
-JOIN business_order_children c ON c.pro_id = o.pro_id
+SELECT c.pro_id,
+       COALESCE(o.external_no, ''),
+       COALESCE(o.pro_title, ''),
+       COALESCE(o.customer_name, ''),
+       COALESCE(o.customer_phone, ''),
+       COALESCE(o.pro_state, 0),
+       COALESCE(o.start_time, ''),
+       COALESCE(o.resolve_time, ''),
+       COALESCE(o.raw_json, ''),
+       COALESCE(o.saved_at, '')
+FROM business_order_children c
+LEFT JOIN business_orders o ON o.pro_id = c.pro_id
 WHERE c.parent_pro_id = ?
-ORDER BY o.saved_at DESC`, parentProID)
+ORDER BY c.id`, parentProID)
 	if err != nil {
 		return nil, err
 	}
@@ -646,33 +655,26 @@ ORDER BY o.saved_at DESC`, parentProID)
 	for rows.Next() {
 		var item SavedBusinessOrder
 		var raw string
-		if err := rows.Scan(&item.ProId, &item.ExternalNo, &item.ProTitle, &item.CustomerName, &item.CustomerPhone, &item.ProState, &item.CreateTime, &item.UpdateTime, &item.StartTime, &item.ResolveTime, &raw, &item.SavedAt); err != nil {
+		var startTime, resolveTime string
+		if err := rows.Scan(&item.ProId, &item.ExternalNo, &item.ProTitle, &item.CustomerName, &item.CustomerPhone, &item.ProState, &startTime, &resolveTime, &raw, &item.SavedAt); err != nil {
 			return nil, err
 		}
-		if err := json.Unmarshal([]byte(raw), &item.Raw); err != nil {
-			return nil, err
+		item.StartTime = startTime
+		item.ResolveTime = resolveTime
+		if raw != "" {
+			_ = json.Unmarshal([]byte(raw), &item.Raw)
+		}
+		if startTime != "" {
+			item.CreateTime = startTime
+		}
+		item.UpdateTime = resolveTime
+		if startTime != "" || resolveTime != "" {
+			item.ProcessDuration = s.computeDuration(startTime, resolveTime)
 		}
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
-	}
-
-	for i := range items {
-		if items[i].StartTime != "" {
-			items[i].CreateTime = items[i].StartTime
-		}
-		items[i].UpdateTime = items[i].ResolveTime
-		if items[i].StartTime != "" || items[i].ResolveTime != "" {
-			items[i].ProcessDuration = s.computeDuration(items[i].StartTime, items[i].ResolveTime)
-		} else {
-			startTime, resolveTime, duration := s.computeProcessTimes(ctx, items[i].ProId)
-			if startTime != "" {
-				items[i].CreateTime = startTime
-			}
-			items[i].UpdateTime = resolveTime
-			items[i].ProcessDuration = duration
-		}
 	}
 
 	return items, nil
