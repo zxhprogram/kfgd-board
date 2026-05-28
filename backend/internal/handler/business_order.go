@@ -29,6 +29,8 @@ type BusinessOrderStore interface {
 	SaveChildList(ctx context.Context, parentProID string, children []model.ChildItem) error
 	ListChildItems(ctx context.Context, parentProID string) ([]model.ChildItem, error)
 	UpdateExternalNo(ctx context.Context, proID string, externalNo string) error
+	GetOrderByProId(ctx context.Context, proID string) (*store.SavedBusinessOrder, error)
+	ListChildOrders(ctx context.Context, parentProID string) ([]store.SavedBusinessOrder, error)
 }
 
 type BusinessOrderHandler struct {
@@ -204,6 +206,45 @@ func (h *BusinessOrderHandler) ResolveDurationDistribution(w http.ResponseWriter
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"items": items,
+	})
+}
+
+func (h *BusinessOrderHandler) Detail(w http.ResponseWriter, r *http.Request) {
+	proID := r.PathValue("proId")
+	if proID == "" {
+		writeJSONError(w, http.StatusBadRequest, "proId is required")
+		return
+	}
+
+	item, err := h.store.GetOrderByProId(r.Context(), proID)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if item == nil {
+		writeJSONError(w, http.StatusNotFound, "order not found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, item)
+}
+
+func (h *BusinessOrderHandler) ChildOrders(w http.ResponseWriter, r *http.Request) {
+	proID := r.PathValue("proId")
+	if proID == "" {
+		writeJSONError(w, http.StatusBadRequest, "proId is required")
+		return
+	}
+
+	items, err := h.store.ListChildOrders(r.Context(), proID)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"parentProId": proID,
+		"items":       items,
 	})
 }
 

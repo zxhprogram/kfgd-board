@@ -91,6 +91,14 @@ func (s *fakeBusinessOrderStore) UpdateExternalNo(ctx context.Context, proID str
 	return nil
 }
 
+func (s *fakeBusinessOrderStore) GetOrderByProId(ctx context.Context, proID string) (*store.SavedBusinessOrder, error) {
+	return nil, nil
+}
+
+func (s *fakeBusinessOrderStore) ListChildOrders(ctx context.Context, parentProID string) ([]store.SavedBusinessOrder, error) {
+	return nil, nil
+}
+
 func TestBusinessOrderHandlerImport(t *testing.T) {
 	store := newFakeBusinessOrderStore()
 	handler := NewBusinessOrderHandler(fakeBusinessOrderDetailFetcher{values: map[string]*model.BusinessOrderValue{

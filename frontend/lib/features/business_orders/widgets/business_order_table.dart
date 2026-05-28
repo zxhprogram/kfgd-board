@@ -4,9 +4,14 @@ import 'package:pluto_grid/pluto_grid.dart';
 import '../data/business_order_models.dart';
 
 class BusinessOrderTable extends StatefulWidget {
-  const BusinessOrderTable({super.key, required this.items});
+  const BusinessOrderTable({
+    super.key,
+    required this.items,
+    this.onRowTap,
+  });
 
   final List<BusinessOrderItem> items;
+  final void Function(BusinessOrderItem item)? onRowTap;
 
   @override
   State<BusinessOrderTable> createState() => _BusinessOrderTableState();
@@ -23,7 +28,7 @@ class _BusinessOrderTableState extends State<BusinessOrderTable> {
     return days >= 5;
   }
 
-  static List<PlutoColumn> _buildColumns() {
+  List<PlutoColumn> _buildColumns() {
     return [
       PlutoColumn(
         title: '工单编号',
@@ -34,6 +39,26 @@ class _BusinessOrderTableState extends State<BusinessOrderTable> {
         enableContextMenu: true,
         width: 200,
         readOnly: true,
+        renderer: (context) {
+          final value = context.cell.value?.toString() ?? '';
+          return InkWell(
+            onTap: () {
+              final rowIdx = context.rowIdx;
+              if (widget.onRowTap != null && rowIdx < widget.items.length) {
+                widget.onRowTap!(widget.items[rowIdx]);
+              }
+            },
+            child: Center(
+              child: Text(
+                value,
+                style: const TextStyle(
+                  color: Color(0xFF2563EB),
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+          );
+        },
       ),
       PlutoColumn(
         title: '外系统单号',

@@ -3,7 +3,9 @@ import 'package:shadcn_flutter/shadcn_flutter.dart';
 import 'package:signals_flutter/signals_flutter.dart';
 
 import '../../../app/dependencies.dart';
+import '../data/business_order_models.dart';
 import '../widgets/business_order_table.dart';
+import '../widgets/order_detail_drawer.dart';
 import '../widgets/pagination_bar.dart';
 
 class OrdersPage extends StatefulWidget {
@@ -43,6 +45,18 @@ class _OrdersPageState extends State<OrdersPage> {
     businessOrderStore.resolveTimeFromFilter.value = null;
     businessOrderStore.resolveTimeToFilter.value = null;
     businessOrderStore.loadPage(pageNo: 1, proId: '');
+  }
+
+  Future<void> _onRowDoubleTap(BusinessOrderItem item) async {
+    try {
+      final detail = await businessOrderApi.getBusinessOrderDetail(item.proId);
+      final childOrders = await businessOrderApi.getChildOrders(item.proId);
+      if (!mounted) return;
+      showOrderDetailDrawer(context, order: detail, childOrders: childOrders);
+    } catch (_) {
+      if (!mounted) return;
+      showOrderDetailDrawer(context, order: item, childOrders: const []);
+    }
   }
 
   String? _dateTimeToDateString(DateTime? dt) {
@@ -235,7 +249,7 @@ class _OrdersPageState extends State<OrdersPage> {
             child: Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: BusinessOrderTable(items: orders),
+                child: BusinessOrderTable(items: orders, onRowTap: _onRowDoubleTap),
               ),
             ),
           ),

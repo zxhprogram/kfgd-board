@@ -132,4 +132,30 @@ class BusinessOrderApi {
       throw ApiException.from(error);
     }
   }
+
+  Future<BusinessOrderItem> getBusinessOrderDetail(String proId) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/business-orders/$proId',
+      );
+      return BusinessOrderItem.fromJson(response.data ?? const {});
+    } catch (error) {
+      throw ApiException.from(error);
+    }
+  }
+
+  Future<List<BusinessOrderItem>> getChildOrders(String proId) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/business-orders/$proId/children',
+      );
+      final items = (response.data?['items'] as List?) ?? const [];
+      return items
+          .whereType<Map>()
+          .map((item) => BusinessOrderItem.fromJson(item.cast<String, dynamic>()))
+          .toList();
+    } catch (error) {
+      throw ApiException.from(error);
+    }
+  }
 }
